@@ -1,0 +1,15 @@
+<input id="input" onchange="calc(Number(this.value))">
+<button onclick="calc(Numberk(document.getElementById('input').value))">Submit</button>
+
+<script>
+function calc(n){
+  a=n*0.25-8.8;
+  b=n*0.3/10.8;
+  if(a>b && a>0)
+    alert(`买25%，节省${a}元。`)
+  else if(b>a && b>0)
+    alert(`买30%，节省${b}元。`)
+  else
+    alert("不买券")
+}
+</script>
