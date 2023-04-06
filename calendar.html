@@ -1,0 +1,54 @@
+<style>
+body{height: 100vh;margin: 0;display:flex;justify-content: center;align-items: center;}
+table{background-color: white;height: 600px;display: block;padding: 20px;border-radius: 25px; font-size: 25px;font-family: times new roman;}
+th{width: 100px;margin: 10px;}
+td{text-align: center;height: 70px;border-radius: 1000px;}
+h1{font-size: 60px;}
+sub{font-size: 40px;font-weight: heavy;margin: 10px;}
+</style>
+
+
+
+<body id="b">
+<div style="text-align: center;">
+<h1 id="h">March<sub>/ ${prompt("Year")}</sub></h1>
+<table id="t" cellspacing="15px">
+<thead>
+<th>Sun</th>
+<th>Mon</th>
+<th>Tue</th>
+<th>Wen</th>
+<th>Thr</th>
+<th>Fri</th>
+<th>Sat</th>
+</thead>
+<tbody>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+</body>
+
+
+<script>
+h=document.getElementById("h")
+a=Number(prompt("align date"))%7
+b=Number(prompt("day of month"))%32
+
+h.innerHTML=`${prompt("Month")}<sub>/ ${prompt("Year")}</sub>`;
+
+color=`${Math.floor(Math.random()*1000)%226}, ${Math.floor(Math.random()*1000)%226}, ${Math.floor(Math.random()*1000)%226}`
+document.body.style.background="linear-gradient(-45deg, rgb("+color+") 50%, rgba("+color+", 0.5) 50%)"
+t=document.getElementById("t").children[1]
+for(var i=a;i<b+a;i++){
+  c=t.children[Math.floor(i/7)].children[(i)%7];
+  c.innerText=`${i+1-a}`;
+  c.setAttribute("onclick", "this.style.backgroundColor=(this.style.backgroundColor=='rgba("+color+", 0.4)'?'white':'rgba("+color+", 0.4)')")
+}
+
+</script>
