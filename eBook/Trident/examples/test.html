@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>Trident Test</title>
+	</head>
+
+	<body style="margin: 0;height: 100vh;">
+		<style>
+			canvas.Trident-page{
+				margin: 10px;
+			}
+		</style>
+		<div id="trident" style="width: 100%;height: 100%;text-align: center;"></div>
+	</body>
+
+	<script src="../src/trident.js"></script>
+	<script>
+		var trident = document.getElementById("trident");
+		tri = new Trident(trident);
+		
+		tp = new TridentPen(trident, TridentPen.a4);
+		tp.config.zoom_ratio = tri.config.zoom_ratio;
+		tp.config.pen.page_border="black";
+		
+		tp.newPage();
+		tp.config.font_size=20;
+		tp.center_text("IMMC team");
+		tp.config.font_size=12;
+		tp.write('\b\t\t\t\tLand is a precious resource and how to use land reasonably is always an important topic. By coordination of nature, society and economy, land planning focuses on maximizing land value with a perspective of sustainable economic development. Therefore, to assist decision maker in determining the best use of the given parcel of land, we need to consider a set of metrics and decide the importance/weight of each metric. We also have to produce a specific land use plan based on those metrics in order to verify the applicability of our metrics. It is also necessary that we test the sensitivity and generalizability of our model by adding external factors and changing regions.')
+		tp.write('\n')
+		tp.write(`\b\t\t\t\tWe first analyzed the factors affecting the value of a land use option. With references to the ESG and relevant national standards, we formulated 3 first-level metrics: Economy, Society and Environment. By analyzing each of them we in turn formulated 8 second-level metrics (“Second-Level Metrics”): cost, long-term benefits, short-term benefits, ROI period, jobs provided, entertainment, greening and pollution. Each Second-Level Metric has a different weight to the Overall-Score of a land use option, so we introduced the Entropy Weight Model to determine their weights.`);
+		
+		tri.reparse(String.raw`
+\documentclass[12pt]{article}
+\usepackage {nopageno}
+
+% Language setting
+% Replace 'english' with e.g. 'spanish' to change the document language
+\usepackage[english]{babel}
+\usepackage{float}
+
+% Set page size and margins
+% Replace 'letterpaper' with 'a4paper' for UK/EU standard size
+\usepackage[a4paper,top=2cm,bottom=2cm,left=2cm,right=2cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{fancyhdr}%导入fancyhdr包
+\usepackage{lastpage}
+\usepackage{times}
+
+\usepackage{multirow}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{booktabs}
+
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+
+\pagestyle{fancy}
+\pagenumbering{arabic}
+\fancyhead[L]{}
+\fancyhead[C]{IMMC23021564}
+\fancyhead[R]{Page \thepage\ of 16}
+\fancyfoot[C]{}
+\renewcommand{\headrulewidth}{1pt}
+
+\newcommand{\setParDis}{\setlength {\parskip} {0.3cm} }
+\newcommand{\setParDef}{\setlength {\parskip} {0pt} }
+
+\begin{document}
+
+
+
+\newpage
+
+\begin{center}
+	\Huge
+	~\\
+	~\\
+	IMMC 23021564
+	~\\
+	~\\
+	\normalsize
+\end{center}
+
+\begin{abstract}
+	ABS\textbf{TRACT}
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+hello!!!!! 100\% loaded!
+
+\section{References}
+
+[1] Page size and margins
+
+https://www.overleaf.com/learn/latex/Page\_size\_and\_margins
+
+\end{document}
+
+
+
+        `);
+	</script>
+
+
+</html>
