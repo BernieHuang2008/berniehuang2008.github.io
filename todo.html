@@ -107,11 +107,13 @@
 
 			function backup() {
 				localStorage.todolist_backup = localStorage.todolist;
+				alert("Backup Complete.");
 				window.location.reload();
 			}
 
 			function restore() {
 				localStorage.todolist = localStorage.todolist_backup;
+				alert("Restore Complete.");
 				window.location.reload();
 			}
 
