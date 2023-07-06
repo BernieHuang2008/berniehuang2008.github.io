@@ -55,7 +55,13 @@
 				update();
 			}
 
+			lastTime = -3000;
+
 			function complete(content) {
+				if (performance.now() - lastTime < 3000)
+					return false;
+				lastTime = performance.now();
+
 				notebook.incompleted.splice(notebook.incompleted.indexOf(content), 1);
 				notebook.completed.push(content);
 				document.getElementById("rp-sound").play();
@@ -276,8 +282,8 @@
 				margin-left: 10px;
 				overflow-wrap: break-word;
 			}
-			
-			#rp-sound{
+
+			#rp-sound {
 				display: none;
 			}
 		</style>
