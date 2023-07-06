@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Power TODO</title>
+	</head>
+	<style>
+		#todoTable>li {
+			list-style: none;
+		}
+	</style>
+	<body>
+		<div id="progressBar">
+			<span style="margin: 5px; float: left;">Progress</span>
+			<div
+				style="display: inline-block;width: calc(100% - 15em);height: 3px;margin-left: 10px;background: #bdd7ca;position: absolute;top: 50%;">
+				<div id="progress" style="background-color: rgb(1, 180, 171); width: 0; height: 100%;"></div>
+			</div>
+			<span id="progressNum" style="margin: 5px; float: right;">0/0 (0%)</span>
+		</div>
+
+		<div id="todoTable">
+		</div>
+
+		<script>
+			const VERSION = 1.0;
+
+			var CURRENT_NOTEBOOK = 0;
+
+			if (localStorage.todolist == undefined || localStorage.todolist_v < VERSION) {
+				localStorage.todolist = '{"notebook": [{"completed": [],"incompleted": []}]}';
+			}
+			localStorage.todolist_v = VERSION;
+
+			var todolist = JSON.parse(localStorage.todolist)
+			var notebook = todolist.notebook[CURRENT_NOTEBOOK];
+
+			redraw();
+
+			function update() {
+				localStorage.todolist = JSON.stringify(todolist);
+				redraw();
+			}
+
+			function add(content) {
+				notebook.incompleted.push(content);
+				update();
+			}
+
+			function complete(content) {
+				notebook.incompleted.splice(notebook.incompleted.indexOf(content), 1);
+				notebook.completed.push(content);
+				update();
+			}
+
+			function redraw() {
+				todoTable.innerHTML = "<h2>Incompleted</h2>";
+
+				notebook.incompleted.forEach(todo => {
+					todoTable.innerHTML += generate_task('#50b5e9', todo, 'incompleted');
+				})
+
+				todoTable.innerHTML += "<hr><h2>Completed</h2>";
+
+				notebook.completed.forEach(todo => {
+					todoTable.innerHTML += generate_task('#878190', todo, 'completed');
+				})
+
+				var completed_num = notebook.completed.length;
+				var total = notebook.incompleted.length + completed_num;
+				if (total < 0)
+					total = completed_num = 1;
+
+				progress.style.width = `${completed_num / total * 100}%`;
+				progressNum.innerText = `${completed_num}/${total} (${Math.round(completed_num / total * 100)}%)`;
+			}
+
+			function generate_task(color, content, className) {
+				var html = `
+				<div class="task ${className}">
+					<div class="left-control" style="background: ${color} !important">
+						<div class="task-control" onclick="${className=='incompleted'?`complete('${content}')`:''}">
+							<div class="svg-icon ${className}"><svg xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 16 16">
+									<path
+										d="M6.54 13c-.3 0-.59-.13-.81-.35L2 8.75l1.62-1.69 2.86 2.98L12.26 3 14 4.56l-6.59 8.02c-.21.25-.51.4-.83.42h-.04z"
+										fill-rule="evenodd"></path>
+								</svg></div>
+						</div>
+					</div>
+					<div class="task-content">
+						<div class="justify-content-between">
+							<h3 class="task-title">
+								<p>${content}</p>
+							</h3>
+						</div>
+					</div>
+				</div>
+				`;
+				return html;
+			}
+
+			function backup() {
+				localStorage.todolist_backup = localStorage.todolist;
+			}
+
+			function restore() {
+				localStorage.todolist = localStorage.todolist_backup;
+			}
+		</script>
+
+		<style>
+			#todoTable {
+				margin-top: 75px;
+			}
+
+			#progressBar {
+				width: calc(100% - 30px);
+				position: fixed;
+				top: 20px;
+				background-color: #cfecdd;
+				padding: 5px;
+				padding-right: 10px;
+				border-radius: 30px;
+				box-shadow: 5px 8px 14px 0px rgb(50 50 50 / 20%);
+			}
+
+			#progress {
+				transition: 0.3s;
+			}
+
+			.task.completed {
+				text-decoration: line-through;
+			}
+
+			path {
+				color: #34313a;
+			}
+
+			.svg-icon.completed {
+				display: block;
+			}
+
+			.task {
+				user-select: none;
+				display: flex !important;
+				box-shadow: 0 2px 2px 0 rgba(26, 24, 29, .16), 0 1px 4px 0 rgba(26, 24, 29, .12);
+				margin-bottom: 5px;
+				border-radius: 4px;
+				transition: 0.2s;
+			}
+
+			.task:hover {
+				box-shadow: 0 1px 8px 0 rgba(26, 24, 29, .12), 0 4px 4px 0 rgba(26, 24, 29, .16);
+			}
+
+			.left-control {
+				display: flex !important;
+				-webkit-box-pack: center !important;
+				justify-content: center !important;
+				width: 40px;
+				flex-shrink: 0;
+				border-top-left-radius: 4px;
+				border-bottom-left-radius: 4px;
+				min-height: 60px;
+				border: 1px solid transparent;
+				border-right: none;
+				cursor: pointer;
+			}
+
+			.task-control {
+				box-sizing: border-box;
+				transition: none;
+				background: hsla(0, 0%, 100%, .5) !important;
+				width: 28px;
+				height: 28px;
+				border: 1px solid transparent;
+				margin-top: 16px;
+				border-radius: 2px;
+				margin-left: -1px;
+			}
+
+			.task-control:hover {
+				background: hsla(0, 0%, 100%, .75) !important;
+			}
+
+			.svg-icon {
+				box-sizing: border-box;
+				transition: none;
+				fill: currentColor;
+				color: #6c0406 !important;
+				width: 16px;
+				height: 16px;
+				margin: 5px;
+				display: none;
+			}
+
+			svg {
+				fill: currentColor;
+				color: #6c0406 !important;
+				box-sizing: border-box;
+				vertical-align: middle;
+				overflow: hidden;
+				display: block;
+				transition: none;
+			}
+
+			.task-content {
+				box-sizing: border-box;
+				transition: none;
+				padding: 0;
+				-webkit-box-flex: 1;
+				flex-grow: 1;
+				background: #fff;
+				border: 1px solid transparent;
+				min-width: 0;
+				border-left: none;
+				border-top-right-radius: 4px;
+				border-bottom-right-radius: 4px;
+			}
+
+			.justify-content-between {
+				font-weight: 400;
+				text-align: left;
+				color: #4e4a57;
+				text-rendering: optimizeLegibility;
+				font-size: 14px;
+				line-height: 1.43;
+				word-break: break-word;
+				box-sizing: border-box;
+				transition: none;
+				display: flex !important;
+				-webkit-box-pack: justify !important;
+				justify-content: space-between !important;
+				cursor: default;
+			}
+
+			.task-title {
+				text-align: left;
+				text-rendering: optimizeLegibility;
+				word-break: break-word;
+				box-sizing: border-box;
+				transition: none;
+				font-family: Roboto Condensed, sans-serif;
+				font-size: 16px;
+				line-height: 1.25;
+				margin-top: 0 !important;
+				margin-bottom: 0 !important;
+				color: #34313a;
+				font-weight: 400;
+				padding: 0;
+				margin-right: 15px;
+				margin-left: 10px;
+				overflow-wrap: break-word;
+			}
+		</style>
+	</body>
+</html>
