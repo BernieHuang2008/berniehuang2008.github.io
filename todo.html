@@ -19,6 +19,11 @@
 			<span id="progressNum" style="margin: 5px; float: right;">0/0 (0%)</span>
 		</div>
 
+		<button onclick="_export()">Export</button>
+		<button onclick="_import()">Import</button>
+		<button onclick="backup()">Backup</button>
+		<button onclick="restore()">Restore</button>
+
 		<div id="todoTable">
 		</div>
 
@@ -102,10 +107,22 @@
 
 			function backup() {
 				localStorage.todolist_backup = localStorage.todolist;
+				window.location.reload();
 			}
 
 			function restore() {
 				localStorage.todolist = localStorage.todolist_backup;
+				window.location.reload();
+			}
+
+			function _export() {
+				navigator.clipboard.writeText(localStorage.todolist);
+				alert("Copied!");
+			}
+
+			function _import() {
+				localStorage.todolist = window.prompt("DATA:");
+				window.location.reload();
 			}
 		</script>
 
