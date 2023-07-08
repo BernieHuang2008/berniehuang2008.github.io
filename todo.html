@@ -128,8 +128,8 @@
 			}
 
 			function _export() {
-				navigator.clipboard.writeText(localStorage.todolist);
-				alert("Copied!");
+				navigator.clipboard.writeText();
+				document.body.innerHTML = `<textarea>${localStorage.todolist}</textarea>`;
 			}
 
 			function _import() {
