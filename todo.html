@@ -15,6 +15,7 @@
 		}
 
 		#progressBar {
+			z-index: 10000;
 			width: calc(100% - 30px);
 			background-color: #cfecdd;
 			position: fixed;
@@ -218,6 +219,25 @@
 			background-color: var(--bgcolor);
 			z-index: 1000;
 		}
+
+		.floatingBtn {
+			width: 50px;
+			height: 50px;
+			line-height: 50px;
+			text-align: center;
+			border-radius: 100%;
+			font-size: 50px;
+			background-color: #f0f9fb;
+			position: fixed;
+			bottom: 50px;
+			right: 50px;
+			user-select: none;
+			transition: .3s;
+		}
+
+		.floatingBtn:hover {
+			box-shadow: 3px 1px 5px 0 rgba(26, 24, 29, .12), 0 4px 4px 0 rgba(26, 24, 29, .16);
+		}
 	</style>
 	<body>
 		<audio id="rp-sound"
@@ -250,9 +270,12 @@
 			<div id="compBox"></div>
 		</div>
 
-		<script>
-			const VERSION = 1.0;
+		<div id="addtask" class="floatingBtn" onclick="show_window(window_addtask);">+</div>
 
+		<script>
+			const VERSION = 2.0;
+
+			var windows = [];
 			var CURRENT_NOTEBOOK = 0;
 
 			if (localStorage.todolist == undefined || localStorage.todolist_v < VERSION) {
@@ -408,7 +431,112 @@
 				localStorage.todolist = JSON.stringify(data);
 				window.location.reload();
 			}
+
+			window.onload = function() {
+				// close all windows.
+				windows = [
+					window_addtask,
+				]
+				close_window();
+			}
+
+			function show_window(win) {
+				win.style.display = "block";
+				document.body.style.overflow = "hidden";
+			}
+
+			function close_window() {
+				windows.forEach(w => w.style.display = "none");
+				document.body.style.overflow = "auto";
+			}
 		</script>
 
+		<style>
+			.window.container {
+				position: fixed;
+				top: 0;
+				left: 0;
+				z-index: 50000;
+				width: 100vw;
+				height: 100vh;
+				background-color: #11111188;
+			}
+
+			.window.content {
+				width: calc(100vw - 50px);
+				height: calc(100vh - 50px);
+				border-radius: 10px;
+				background-color: #fff;
+				position: relative;
+				top: 20px;
+				left: 20px;
+				padding: 10px;
+				overflow: auto;
+			}
+
+			.window.content>input {
+				border: none;
+				border-bottom: solid black 1px;
+				margin: 5px;
+				color: red;
+			}
+
+			.window.content>textarea {
+				width: 100%;
+				height: 400px;
+
+				white-space: pre-wrap;
+			}
+		</style>
+		<div id="window_addtask" class="window container">
+			<div class="window content">
+				<center>
+					<h1 style="margin: 0;">New Task</h1>
+				</center>
+				<h2>Iterator</h2>
+				for i in [
+				<input value="1" style="width: 2em;" id="window_addtask_iter1" /> ,
+				<input value="1" style="width: 2em;" id="window_addtask_iter2" />
+				]
+				<hr>
+				<h2>Task Template</h2>
+				<input value="Task $i" id="window_addtask_template">
+				<hr>
+				<h2>Preview</h2>
+				<div id="window_addtask_preview" style="border: solid 1px;"></div>
+				<div onclick="close_window()" class="floatingBtn" style="top: 50px;">X</div>
+				<div id="window_addtask_submit" class="floatingBtn">√</div>
+
+				<script>
+					function window_addtask_showPreview() {
+						var res = "";
+						var res2 = [];
+						var iter1 = Number(window_addtask_iter1.value);
+						var iter2 = Number(window_addtask_iter2.value);
+						var template = window_addtask_template.value;
+
+						for (var i = iter1; i <= iter2; i++) {
+							res += `<li>${template.replaceAll("$i", i)}</li>`;
+							res2.push(template.replaceAll("$i", i));
+						}
+
+						window_addtask_preview.innerHTML = res;
+						return res2;
+					}
+					window_addtask_showPreview();
+
+					window_addtask_iter1.oninput = window_addtask_showPreview;
+					window_addtask_iter2.oninput = window_addtask_showPreview;
+					window_addtask_template.oninput = window_addtask_showPreview;
+
+					window_addtask_submit.onclick = function() {
+						window_addtask_showPreview().forEach(task => {
+							add(task);
+						})
+						close_window();
+					}
+				</script>
+			</div>
+		</div>
 	</body>
 </html>
