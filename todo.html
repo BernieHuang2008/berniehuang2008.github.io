@@ -317,10 +317,11 @@
 			function delete_notebook() {
 				var conf = prompt('Delete Notebook: Confirm delete?\nType "confirm delete" to delete.');
 				if (conf.trim().toLowerCase() === "confirm delete") {
-					var deleted = todolist.notebook.splice(CURRENT_NOTEBOOK, 1);
+					var deleted = todolist.notebook.splice(CURRENT_NOTEBOOK, 1)[0];
 					if (CURRENT_NOTEBOOK >= todolist.notebook.length)
-						CURRENT_NOTEBOOK = todolist.notebook.length - 1;
-					alert("Successfully deleted notebook ["+deleted.name+"].");
+						change_notebook(todolist.notebook.length - 1);
+					alert(`Successfully deleted notebook <${deleted.name}>.`);
+					console.log("delete", deleted);
 					update();
 				} else {
 					alert("Confirm Failed.");
@@ -338,7 +339,7 @@
 					name: bookname
 				});
 
-				CURRENT_NOTEBOOK++;
+				change_notebook(todolist.notebook.length - 1);
 				update();
 			}
 
