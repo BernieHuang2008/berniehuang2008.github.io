@@ -307,7 +307,7 @@
 			}
 
 			function rename_notebook() {
-				var bookname = prompt("Rename Notebook:");
+				var bookname = prompt("Rename Notebook:").trim();
 				if (!bookname) return;
 
 				notebook.name = bookname;
@@ -330,7 +330,7 @@
 			}
 
 			function add_notebook() {
-				var bookname = prompt("Book Name:");
+				var bookname = prompt("Book Name:").trim();
 				if (!bookname) return;
 
 				todolist.notebook.push({
