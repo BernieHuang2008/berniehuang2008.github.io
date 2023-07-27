@@ -240,6 +240,26 @@
 		.floatingBtn:hover {
 			box-shadow: 3px 1px 5px 0 rgba(26, 24, 29, .12), 0 4px 4px 0 rgba(26, 24, 29, .16);
 		}
+
+		.triangle-icon {
+			width: 0;
+			height: 0;
+			border: 9px solid #535b62;
+			border-right-color: transparent;
+			border-left-color: transparent;
+			position: relative;
+			margin-right: 10px;
+		}
+
+		.triangle-icon.down {
+			border-bottom: none;
+			top: calc(1em - 4.5px);
+		}
+
+		.triangle-icon.up {
+			border-top: none;
+			bottom: calc(1em - 4.5px);
+		}
 	</style>
 	<body>
 		<audio id="rp-sound"
@@ -266,10 +286,10 @@
 		<div class="tab" id="tab"></div>
 
 		<div id="todoTable">
-			<h2>InCompleted</h2>
+			<h2 style="cursor: pointer;" onclick="inc(this)"><span class="triangle-icon up"></span>InCompleted</h2>
 			<div id="incompBox"></div>
 			<hr>
-			<h2>Completed</h2>
+			<h2 style="cursor: pointer;" onclick="com(this)"><span class="triangle-icon down"></span>Completed</h2>
 			<div id="compBox"></div>
 		</div>
 
@@ -289,22 +309,40 @@
 			var todolist = JSON.parse(localStorage.todolist)
 			var notebook = todolist.notebook[CURRENT_NOTEBOOK];
 
+			incompBox.show = true;
+			compBox.show = false;
+
 			redraw();
 
-			function update() {
+			function inc(t) {
+				console.log(t, t.children[0])
+				incompBox.show = !incompBox.show;
+				t.children[0].classList = "triangle-icon " + (incompBox.show ? "up" : "down");
+				update('task');
+			}
+
+			function com(t) {
+				compBox.show = !compBox.show;
+				t.children[0].classList = "triangle-icon " + (compBox.show ? "up" : "down");
+				update('task');
+			}
+
+			function update(part) {
 				localStorage.todolist = JSON.stringify(todolist);
-				redraw();
+				redraw(part);
 			}
 
 			function add(content) {
 				notebook.incompleted.push(content);
-				update();
+				update('task');
 			}
 
 			function change_notebook(i) {
 				CURRENT_NOTEBOOK = i;
 				notebook = todolist.notebook[CURRENT_NOTEBOOK];
 				redraw();
+				incompBox.show = true;
+				compBox.show = false;
 			}
 
 			function rename_notebook() {
@@ -312,7 +350,7 @@
 				if (!bookname) return;
 
 				notebook.name = bookname;
-				update();
+				update('tab');
 			}
 
 			function delete_notebook() {
@@ -321,7 +359,7 @@
 					if (CURRENT_NOTEBOOK >= todolist.notebook.length)
 						change_notebook(todolist.notebook.length - 1);
 					console.log("delete", deleted);
-					update();
+					update('tab');
 				}
 			}
 
@@ -336,7 +374,6 @@
 				});
 
 				change_notebook(todolist.notebook.length - 1);
-				update();
 			}
 
 			lastTime = -Infinity;
@@ -349,7 +386,7 @@
 				notebook.incompleted.splice(notebook.incompleted.indexOf(content), 1);
 				notebook.completed.push(content);
 				document.getElementById("rp-sound").play();
-				update();
+				update('task');
 			}
 
 			function task_completed(content) {
@@ -360,38 +397,71 @@
 				notebook.completed.splice(notebook.completed.indexOf(content), 1);
 				notebook.incompleted.push(content);
 				document.getElementById("rp-sound").play();
-				update();
+				update('task');
 			}
 
-			function redraw() {
-				tab.innerHTML = "";
-				for (var i = 0; i < todolist.notebook.length; i++) {
-					var bookname = todolist.notebook[i].name || "Notebook " + i;
-					if (i != CURRENT_NOTEBOOK)
-						tab.innerHTML += `<div class="card" onclick="change_notebook(${i})">${bookname}</div>`;
-					else
-						tab.innerHTML += `<div class="card focus">${bookname}</div>`;
+			function redraw(part) {
+				function _tab() {
+					tab.innerHTML = "";
+					for (var i = 0; i < todolist.notebook.length; i++) {
+						var bookname = todolist.notebook[i].name || "Notebook " + i;
+						if (i != CURRENT_NOTEBOOK)
+							tab.innerHTML += `<div class="card" onclick="change_notebook(${i})">${bookname}</div>`;
+						else
+							tab.innerHTML += `<div class="card focus">${bookname}</div>`;
+					}
+					tab.innerHTML += "<div class='card' onclick='add_notebook()'>+</div>"
 				}
-				tab.innerHTML += "<div class='card' onclick='add_notebook()'>+</div>"
 
-				compBox.innerHTML = "";
-				incompBox.innerHTML = "";
+				function _task() {
+					compBox.innerHTML = "";
+					incompBox.innerHTML = "";
 
-				notebook.incompleted.forEach(todo => {
-					incompBox.innerHTML += generate_task('#50b5e9', todo, 'incompleted');
-				})
+					if (compBox.show) {
+						notebook.completed.forEach(todo => {
+							compBox.innerHTML += generate_task('#878190', todo, 'completed');
+						})
+					}
 
-				notebook.completed.forEach(todo => {
-					compBox.innerHTML += generate_task('#878190', todo, 'completed');
-				})
+					if (incompBox.show) {
+						notebook.incompleted.forEach(todo => {
+							incompBox.innerHTML += generate_task('#50b5e9', todo, 'incompleted');
+						})
+					}
 
-				var completed_num = notebook.completed.length;
-				var total = notebook.incompleted.length + completed_num;
-				if (total < 0)
-					total = completed_num = 1;
+					_progress();
+				}
 
-				progress.style.width = `${completed_num / total * 100}%`;
-				progressNum.innerText = `${completed_num}/${total} (${Math.round(completed_num / total * 100)}%)`;
+				function _progress() {
+					var completed_num = notebook.completed.length;
+					var total = notebook.incompleted.length + completed_num;
+					if (total < 0)
+						total = completed_num = 1;
+
+					progress.style.width = `${completed_num / total * 100}%`;
+					progressNum.innerText = `${completed_num}/${total} (${Math.round(completed_num / total * 100)}%)`;
+				}
+
+				function _global() {
+					_tab();
+					_task();
+				}
+
+				switch (part) {
+					case 'tab':
+						_tab();
+						break;
+					case 'task':
+						_task();
+						break;
+					case 'progress':
+						_progress();
+						break;
+					case undefined:
+					case 'all':
+						_global();
+						break;
+				}
 			}
 
 			function generate_task(color, content, className) {
