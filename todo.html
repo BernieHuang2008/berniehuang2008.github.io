@@ -168,7 +168,7 @@
 			width: max-content;
 			border-radius: 5px 5px 0 0;
 			transition: .3s;
-			outline: solid 1px;
+			border: solid 1px;
 		}
 
 		.tab>.card::before {
@@ -195,12 +195,12 @@
 			--card-bg: #c8e0e4 !important;
 			z-index: 200 !important;
 			box-shadow: 0px 0px 4px 0px rgba(26, 24, 29, 1) !important;
-			outline: none !important;
+			border-color: var(--card-bg) !important;
 		}
 
 		.tab>.card:hover {
 			--card-bg: #90c0c8;
-			outline-color: var(--card-bg);
+			border-color: var(--card-bg);
 			z-index: 100;
 		}
 
@@ -214,8 +214,8 @@
 			content: '';
 			position: absolute;
 			left: 0;
-			bottom: -10px;
-			height: 10px;
+			bottom: -11px;
+			height: 11px;
 			width: 100%;
 			background-color: var(--bgcolor);
 			z-index: 1000;
@@ -248,7 +248,7 @@
 		<div id="progressBar">
 			<span style="margin: 5px; float: left;">Progress</span>
 			<div
-				style="display: inline-block;width: calc(100% - 15em);height: 3px;margin-left: 10px;background: #bdd7ca;position: absolute;top: 50%;">
+				style="display: inline-block;width: calc(100% - 13em);height: 3px;margin-left: 10px;background: #bdd7ca;position: absolute;top: 50%;">
 				<div id="progress" style="background-color: rgb(1, 180, 171); width: 0; height: 100%;"></div>
 			</div>
 			<span id="progressNum" style="margin: 5px; float: right;">0/0 (0%)</span>
@@ -256,7 +256,7 @@
 		<div style="height: 3em;"><!-- 占位符 --></div>
 
 		<button onclick="_export()">Export</button>
-		<button onclick="_import()">Import</button> |
+		<button onclick="show_window(window_import)">Import</button> |
 		<button onclick="backup()">Backup</button>
 		<button onclick="restore()">Restore</button> |
 		<button onclick="rename_notebook()">Rename</button>
@@ -315,17 +315,12 @@
 			}
 
 			function delete_notebook() {
-				var conf = prompt('Delete Notebook: Confirm delete?\nType "del" to delete.');
-				if (conf.trim().toLowerCase() === "del") {
+				if (confirm("Confirm Delete?")) {
 					var deleted = todolist.notebook.splice(CURRENT_NOTEBOOK, 1)[0];
 					if (CURRENT_NOTEBOOK >= todolist.notebook.length)
 						change_notebook(todolist.notebook.length - 1);
-					alert(`Successfully deleted notebook <${deleted.name}>.`);
 					console.log("delete", deleted);
 					update();
-				} else {
-					alert("Confirm Failed.");
-					return;
 				}
 			}
 
@@ -440,34 +435,36 @@
 				document.body.innerHTML = `<textarea>${localStorage.todolist}</textarea>`;
 			}
 
-			function _import() {
-				var data = window.prompt("DATA:");
-				if (!data) return;
-
-				data = JSON.parse(data);
-				localStorage.todolist = JSON.stringify(data);
-				window.location.reload();
-			}
-
 			window.onload = function() {
+				if (navigator.userAgent.indexOf('Html5Plus/1.0') != -1) // mobile app
+					document.body.style.zoom = 2.5;
+
 				// close all windows.
 				windows = [
 					window_addtask,
+					window_import,
 				]
 				close_window();
 			}
+		</script>
 
+		<!-- Window -->
+
+		<script>
 			function show_window(win) {
 				win.style.display = "block";
 				document.body.style.overflow = "hidden";
 			}
 
-			function close_window() {
+			var init_window = {};
+
+			function close_window(win) {
 				windows.forEach(w => w.style.display = "none");
 				document.body.style.overflow = "auto";
+				if (win)
+					init_window[win]();
 			}
 		</script>
-
 		<style>
 			.window.container {
 				position: fixed;
@@ -521,7 +518,7 @@
 				<hr>
 				<h2>Preview</h2>
 				<div id="window_addtask_preview" style="border: solid 1px;"></div>
-				<div onclick="close_window()" class="floatingBtn" style="top: 50px;">×</div>
+				<div onclick="close_window('addtask')" class="floatingBtn" style="top: 50px;">×</div>
 				<div id="window_addtask_submit" class="floatingBtn">√</div>
 
 				<script>
@@ -550,10 +547,43 @@
 						window_addtask_showPreview().forEach(task => {
 							add(task);
 						})
-						close_window();
+						close_window('addtask');
+					}
+
+					init_window.addtask = function() {
+						window_addtask_iter1.value = "1";
+						window_addtask_iter2.value = "1";
+						window_addtask_template.value = "";
+						window_addtask_template.placeholder = "e.g. Task $1";
+						window_addtask_showPreview();
 					}
 				</script>
 			</div>
+		</div>
+		<div id="window_import" class="window container">
+			<div class="window content">
+				<center>
+					<h1>Import Data</h1>
+				</center>
+				<textarea placeholder="Data ..." id="window_import_data"></textarea>
+				<div onclick="close_window('import')" class="floatingBtn" style="top: 50px;">×</div>
+				<div onclick="window_import_import()" class="floatingBtn">√</div>
+			</div>
+
+			<script>
+				init_window.import = function() {
+					window_import_data.value = '';
+				}
+
+				function window_import_import() {
+					var data = window_import_data.value;
+					if (!data) return false;
+
+					data = JSON.parse(data);
+					localStorage.todolist = JSON.stringify(data);
+					window.location.reload();
+				}
+			</script>
 		</div>
 	</body>
 </html>
