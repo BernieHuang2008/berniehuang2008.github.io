@@ -315,8 +315,8 @@
 			}
 
 			function delete_notebook() {
-				var conf = prompt('Delete Notebook: Confirm delete?\nType "confirm delete" to delete.');
-				if (conf.trim().toLowerCase() === "confirm delete") {
+				var conf = prompt('Delete Notebook: Confirm delete?\nType "del" to delete.');
+				if (conf.trim().toLowerCase() === "del") {
 					var deleted = todolist.notebook.splice(CURRENT_NOTEBOOK, 1)[0];
 					if (CURRENT_NOTEBOOK >= todolist.notebook.length)
 						change_notebook(todolist.notebook.length - 1);
