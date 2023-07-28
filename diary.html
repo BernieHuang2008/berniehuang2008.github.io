@@ -178,7 +178,7 @@
 
 				var diary_year = diary[date.year] = diary[date.year] || {};
 				var diary_mon = diary_year[date.mon] = diary_year[date.mon] || {};
-				today = diary_mon[date.date] || "\v";
+				today = diary_mon[date.date] || sec_encode('\n');
 
 				today.split('\0').forEach(content => {
 					create_card(sec_decode(content), true);
@@ -285,12 +285,26 @@
 			}
 
 			document.body.onclick = store;
+
+			function cmd() {
+				var cmd = prompt("Command:");
+				switch (cmd.trim().toLowerCase()) {
+					case 'export':
+						document.write(`<textarea>${localStorage.diary}</textarea>`);
+						break;
+					case 'import':
+						init_window_import();
+						window_import.style.display = "block";
+				}
+
+			}
 		</script>
 
 		<div id="datetab">
 			<h1 id="ds_year"></h1>
 			<button class=smdl
-				onclick="date=TODAY;load();switch_week(new Date(`${TODAY.year}-${TODAY.mon}-${TODAY.date}`))">&#xecaf;</button>
+				onclick="date=TODAY;load();switch_week(new Date(`${TODAY.year}-${TODAY.mon}-${TODAY.date}`))"
+				ondblclick="cmd()">&#xecaf;</button>
 			<button onclick="ds_week(-1)">&lt;</button>
 			<div id='dateweek'></div>
 			<button onclick="ds_week(1)">&gt;</button>
@@ -300,59 +314,93 @@
 		<div id="w_today">
 		</div>
 		<div onclick="create_card()" class="floatingBtn">+</div>
-	</body>
-	<!-- <div id="pwdBoard">
-			<style>
-				#pwdBoard {
-					width: 100vw;
-					height: 100vh;
-					overflow: hidden;
-					position: fixed;
-					top: 0;
-					left: 0;
-					display: block;
-					text-align: center;
-					background-color: white;
-					z-index: 999999;
-				}
 
-				#pwdBoard>button {
-					width: 23vmin;
-					height: 23vmin;
-					font-size: 10vmin;
-					margin: 1vmin;
-					box-shadow: 2px 2px 0 1px;
-				}
 
-				#pwdBoard>button:active {
-					box-shadow: none;
-					position: relative;
-					top: 2px;
-					left: 2px;
-				}
-			</style>
-			<button>1</button><button>2</button><button>3</button><br>
-			<button>4</button><button>5</button><button>6</button><br>
-			<button>7</button><button>8</button><button>9</button><br>
-			<button>×</button><button>0</button><button>Submit</button><br>
+
+
+		<style>
+			.window.container {
+				position: fixed;
+				top: 0;
+				left: 0;
+				z-index: 50000;
+				width: 100vw;
+				height: 100vh;
+				background-color: #11111188;
+			}
+
+			.window.content {
+				width: calc(100vw - 50px);
+				height: calc(100vh - 50px);
+				border-radius: 10px;
+				background-color: #fff;
+				position: relative;
+				top: 20px;
+				left: 20px;
+				padding: 10px;
+				overflow: auto;
+			}
+
+			.window.content>input {
+				border: none;
+				border-bottom: solid black 1px;
+				margin: 5px;
+				color: red;
+			}
+
+			.window.content>textarea {
+				width: 100%;
+				height: 400px;
+
+				white-space: pre-wrap;
+			}
+		</style>
+		<div id="window_import" class="window container">
+			<div class="window content">
+				<center>
+					<h1>Import Data</h1>
+				</center>
+				<textarea placeholder="Data ..." id="window_import_data"></textarea>
+				<div onclick="window_import.style.display='none'" class="floatingBtn" style="top: 50px;">×</div>
+				<div onclick="window_import_import()" class="floatingBtn">√</div>
+			</div>
+
 			<script>
-				for (var i = 0; i < 16; i++) {
-					x = pwdBoard.children[i];
-					if (x.innerText == 'Submit') {
-						x.onclick = function() {
-							load();
-							pwdBoard.remove();
-						}
-					} else if (x.innerText == '×') {
-						x.onclick = function() {
-							sec_key = "";
-						}
-					} else if (x.tagName == 'BUTTON') {
-						x.onclick = function() {
-							sec_key += this.innerText;
-						}
-					}
+				window_import.style.display = "none";
+
+				init_window_import = function() {
+					window_import_data.value = '';
+				}
+
+				function window_import_import() {
+					var data = window_import_data.value;
+					if (!data) return false;
+
+					data = JSON.parse(data);
+					localStorage.diary = JSON.stringify(data);
+					window.location.reload();
 				}
 			</script>
-		</div> -->
+		<div id="window_sel" class="window container">
+			<div class="window content">
+				<center>
+					<h1>Select</h1>
+				</center>
+				<textarea placeholder="Data ..." id="window_import_data"></textarea>
+				<div onclick="window_import.style.display='none'" class="floatingBtn" style="top: 50px;">×</div>
+				<div onclick="window_import_import()" class="floatingBtn">√</div>
+			</div>
+
+			<script>
+				window_sel.style.display = "none";
+
+				init_window_sel = function() {
+					window_import_data.value = '';
+				}
+
+				function window_sel_submit() {
+				}
+			</script>
+		</div>
+	</body>
 </html>
