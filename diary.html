@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<title>Diary</title>
+		<style>
+			body {
+				margin: 0;
+				text-align: center;
+				width: 100vw;
+				min-height: 100vh;
+				overflow-x: hidden;
+				display: flex;
+				justify-content: center;
+			}
+
+			#w_today {
+				max-width: 700px;
+				width: calc(100vw - 40px);
+				margin-top: 50px;
+			}
+
+			.card {
+				margin: 20px;
+				text-align: left;
+				border: solid #cfac74 2px;
+				border-radius: 10px;
+				padding: 10px;
+				background-color: #cfac7455;
+			}
+
+			.card>p {
+				text-indent: 2ch;
+				word-break: break-all;
+			}
+
+			.floatingBtn {
+				width: 50px;
+				height: 50px;
+				line-height: 50px;
+				text-align: center;
+				border-radius: 100%;
+				font-size: 50px;
+				background-color: #f0f9fb;
+				position: fixed;
+				bottom: 50px;
+				right: 50px;
+				user-select: none;
+				transition: .3s;
+			}
+
+			.floatingBtn:hover {
+				box-shadow: 3px 1px 5px 0 rgba(26, 24, 29, .12), 0 4px 4px 0 rgba(26, 24, 29, .16);
+			}
+
+			#datetab {
+				user-select: none;
+				height: 50px;
+				width: 100vw;
+				position: fixed;
+				top: 0;
+				left: 0;
+				padding: 5px;
+				display: block;
+				backdrop-filter: blur(10px);
+				background-color: #d4be7344;
+			}
+
+			#datetab>button {
+				width: 50px;
+				height: 50px;
+				font-size: 30px;
+				display: inline-block;
+				border: none;
+				background-color: transparent;
+			}
+
+			#datetab>button:not(.smdl) {
+				position: relative;
+				top: -5px;
+			}
+
+			button:hover {
+				cursor: pointer;
+			}
+
+			#dateweek {
+				display: inline-block;
+				height: 50px;
+			}
+
+			#dateweek>button {
+				margin: 0;
+				position: relative;
+				top: -30px;
+				width: 50px;
+				height: 60px;
+				margin-left: 5px;
+				margin-right: 5px;
+				border: 0;
+				background-color: transparent;
+				transition: .1s;
+			}
+
+			#dateweek>button:hover {
+				border: solid 0.5px grey;
+			}
+
+			#dateweek>button.focus {
+				background: linear-gradient(45deg, #0004, transparent);
+			}
+
+			#dateweek>button>h2 {
+				margin: 0;
+			}
+
+			span.mon {
+				color: grey;
+			}
+
+			#datetab>h1 {
+				margin: 0;
+				position: fixed;
+				left: 10px;
+				top: calc(25px - 0.5em);
+			}
+
+			@font-face {
+				font-family: 'SMDL';
+				src: url('SMDL.woff');
+			}
+
+			.smdl {
+				font-family: 'SMDL';
+			}
+		</style>
+		<script>
+			function $(q) {
+				return document.querySelector(q);
+			}
+
+			function $$(q) {
+				return document.querySelectorAll(q);
+			}
+		</script>
+	</head>
+	<body>
+		<script>
+			var sec_key = "\x01";
+
+			function sec_encode(content) {
+				var secret = "";
+				for (var i = 0; i < content.length; i++) {
+					secret += String.fromCharCode(content[i].charCodeAt() ^ sec_key[i % sec_key.length].charCodeAt());
+				}
+				return secret;
+			}
+
+			var sec_decode = sec_encode;
+		</script>
+		<script>
+			var diary;
+			var date = new Date();
+			var today = "";
+			var dateselector_d = new Date();
+			const TODAY = {
+				year: date.getFullYear(),
+				mon: date.getMonth() + 1,
+				date: date.getDate()
+			};
+			date = TODAY
+
+			function load(arg1) {
+				w_today.innerHTML = "";
+
+				diary = JSON.parse(localStorage.getItem('diary') || "{}");
+
+				var diary_year = diary[date.year] = diary[date.year] || {};
+				var diary_mon = diary_year[date.mon] = diary_year[date.mon] || {};
+				today = diary_mon[date.date] || "\v";
+
+				today.split('\0').forEach(content => {
+					create_card(sec_decode(content), true);
+				})
+
+				if (arg1 != 1) {
+					var today_date = new Date(`${date.year}-${date.mon}-${date.date}`);
+					switch_week(today_date);
+				}
+			}
+
+			function switch_week(today_date) {
+				var day_of_the_week = today_date.getDay();
+				var hldate = new Date(`${date.year}-${date.mon}-${date.date}`);
+				var days = ['Sun', 'Mon', 'Tue', 'Wen', 'Tur', 'Fri', 'Sat'];
+				var mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', "Aug", 'Sep', 'Oct', 'Nov', 'Dec']
+
+				dateweek.innerHTML = "";
+				ds_year.innerText = today_date.getFullYear();
+
+				for (var i = 0; i < 7; i++) {
+					var day = days[i];
+					var btn = document.createElement('button');
+					let this_date = new Date(today_date);
+					this_date.setDate(today_date.getDate() - (day_of_the_week - i))
+
+					btn.innerHTML =
+						`<span class=mon>${mons[this_date.getMonth()]}.</span><h2>${this_date.getDate()}</h2><span>${day}</span>`;
+
+					if (equ2(this_date, hldate)) {
+						btn.classList = 'focus';
+					} else {
+						btn.onclick = function() {
+							switch_date(this_date.getFullYear(), this_date.getMonth() + 1, this_date.getDate());
+							dateselector_d = new Date(this_date);
+						}
+					}
+					dateweek.appendChild(btn);
+				}
+			}
+
+			function ds_week(cnt) {
+				dateselector_d.setDate(dateselector_d.getDate() + 7 * cnt);
+				switch_week(dateselector_d);
+			}
+
+			function store() {
+				today = [];
+				for (var i = w_today.children.length - 1; i >= 0; i--) {
+					x = w_today.children[i];
+					if (extract_text(x).trim() != '')
+						today.push(sec_encode(extract_text(x)));
+				}
+				today = today.join('\0');
+				diary[date.year][date.mon][date.date] = today;
+				localStorage.diary = JSON.stringify(diary);
+			}
+
+			function extract_text(card) {
+				return card.innerText;
+			}
+
+			function equ(a, b) {
+				return a.year == b.year && a.mon == b.mon && a.date == b.date;
+			}
+
+			function equ2(a, b) {
+				return a.getFullYear() == b.getFullYear() && a.getMonth() == b.getMonth() && a.getDate() == b.getDate();
+			}
+
+			function create_card(text, force) {
+				text = text || '';
+				if (force || !$('.card') || $('.card').innerText.trim() != '') {
+					w_today.innerHTML = `<div class=card ${equ(TODAY, date)?'contenteditable':''}></div>` + w_today
+						.innerHTML;
+					$('.card').innerText = text;
+				}
+			}
+
+			function switch_date(new_year, new_mon, new_date) {
+				store();
+				date = {
+					year: new_year,
+					mon: new_mon,
+					date: new_date
+				}
+				load();
+			}
+
+			window.onload = function() {
+				load();
+			}
+
+			document.body.onclick = store;
+		</script>
+
+		<div id="datetab">
+			<h1 id="ds_year"></h1>
+			<button class=smdl
+				onclick="date=TODAY;load();switch_week(new Date(`${TODAY.year}-${TODAY.mon}-${TODAY.date}`))">&#xecaf;</button>
+			<button onclick="ds_week(-1)">&lt;</button>
+			<div id='dateweek'></div>
+			<button onclick="ds_week(1)">&gt;</button>
+			<button class=smdl onclick="">&#xED28;</button>
+		</div>
+
+		<div id="w_today">
+		</div>
+		<div onclick="create_card()" class="floatingBtn">+</div>
+	</body>
+	<!-- <div id="pwdBoard">
+			<style>
+				#pwdBoard {
+					width: 100vw;
+					height: 100vh;
+					overflow: hidden;
+					position: fixed;
+					top: 0;
+					left: 0;
+					display: block;
+					text-align: center;
+					background-color: white;
+					z-index: 999999;
+				}
+
+				#pwdBoard>button {
+					width: 23vmin;
+					height: 23vmin;
+					font-size: 10vmin;
+					margin: 1vmin;
+					box-shadow: 2px 2px 0 1px;
+				}
+
+				#pwdBoard>button:active {
+					box-shadow: none;
+					position: relative;
+					top: 2px;
+					left: 2px;
+				}
+			</style>
+			<button>1</button><button>2</button><button>3</button><br>
+			<button>4</button><button>5</button><button>6</button><br>
+			<button>7</button><button>8</button><button>9</button><br>
+			<button>×</button><button>0</button><button>Submit</button><br>
+			<script>
+				for (var i = 0; i < 16; i++) {
+					x = pwdBoard.children[i];
+					if (x.innerText == 'Submit') {
+						x.onclick = function() {
+							load();
+							pwdBoard.remove();
+						}
+					} else if (x.innerText == '×') {
+						x.onclick = function() {
+							sec_key = "";
+						}
+					} else if (x.tagName == 'BUTTON') {
+						x.onclick = function() {
+							sec_key += this.innerText;
+						}
+					}
+				}
+			</script>
+		</div> -->
+</html>
