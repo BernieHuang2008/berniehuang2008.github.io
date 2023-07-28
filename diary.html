@@ -225,6 +225,11 @@
 				switch_week(dateselector_d);
 			}
 
+			function ds_day(cnt) {
+				dateselector_d.setDate(dateselector_d.getDate() + cnt);
+				switch_date(dateselector_d.getFullYear(), dateselector_d.getMonth() + 1, dateselector_d.getDate())
+			}
+
 			function store() {
 				today = [];
 				for (var i = w_today.children.length - 1; i >= 0; i--) {
@@ -270,6 +275,13 @@
 
 			window.onload = function() {
 				load();
+				if (window.innerWidth < 900) {
+					ds_year.style.display = "none";
+				}
+				if (window.innerWidth < 650) {
+					ds_week = ds_day;
+					document.body.innerHTML += "<style>#dateweek>button:not(.focus){display: none;}</style>"
+				}
 			}
 
 			document.body.onclick = store;
