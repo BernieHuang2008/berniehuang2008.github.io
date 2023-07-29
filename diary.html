@@ -190,11 +190,12 @@
 				}
 			}
 
+			const days = ['Sun', 'Mon', 'Tue', 'Wen', 'Tur', 'Fri', 'Sat'];
+			const mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', "Aug", 'Sep', 'Oct', 'Nov', 'Dec'];
+
 			function switch_week(today_date) {
 				var day_of_the_week = today_date.getDay();
 				var hldate = new Date(`${date.year}-${date.mon}-${date.date}`);
-				var days = ['Sun', 'Mon', 'Tue', 'Wen', 'Tur', 'Fri', 'Sat'];
-				var mons = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', "Aug", 'Sep', 'Oct', 'Nov', 'Dec']
 
 				dateweek.innerHTML = "";
 				ds_year.innerText = today_date.getFullYear();
@@ -218,6 +219,11 @@
 					}
 					dateweek.appendChild(btn);
 				}
+			}
+
+			function ds_month(cnt) {
+				dateselector_d.setMonth(dateselector_d.getMonth() + cnt);
+				open_window_sel();
 			}
 
 			function ds_week(cnt) {
@@ -282,6 +288,10 @@
 					ds_week = ds_day;
 					document.body.innerHTML += "<style>#dateweek>button:not(.focus){display: none;}</style>"
 				}
+				if (window.innerWidth < 470) {
+					window_sel_h.style.zoom = 0.7;
+					window_sel_t.style.zoom = 0.7;
+				}
 			}
 
 			document.body.onclick = store;
@@ -305,10 +315,10 @@
 			<button class=smdl
 				onclick="date=TODAY;load();switch_week(new Date(`${TODAY.year}-${TODAY.mon}-${TODAY.date}`))"
 				ondblclick="cmd()">&#xecaf;</button>
-			<button onclick="ds_week(-1)">&lt;</button>
+			<button onclick="ds_week(-1)" class=smdl>&#xe76b;</button>
 			<div id='dateweek'></div>
-			<button onclick="ds_week(1)">&gt;</button>
-			<button class=smdl onclick="">&#xED28;</button>
+			<button onclick="ds_week(1)" class=smdl>&#xe76c;</button>
+			<button class=smdl onclick="open_window_sel()">&#xED28;</button>
 		</div>
 
 		<div id="w_today">
@@ -335,8 +345,8 @@
 				border-radius: 10px;
 				background-color: #fff;
 				position: relative;
-				top: 20px;
-				left: 20px;
+				top: 15px;
+				left: 15px;
 				padding: 10px;
 				overflow: auto;
 			}
@@ -381,24 +391,131 @@
 					window.location.reload();
 				}
 			</script>
+		</div>
+
 		<div id="window_sel" class="window container">
-			<div class="window content">
-				<center>
-					<h1>Select</h1>
-				</center>
-				<textarea placeholder="Data ..." id="window_import_data"></textarea>
-				<div onclick="window_import.style.display='none'" class="floatingBtn" style="top: 50px;">×</div>
-				<div onclick="window_import_import()" class="floatingBtn">√</div>
+			<style>
+				.window.content {
+					display: flex;
+					justify-content: center;
+					align-items: center;
+				}
+
+				table {
+					background-color: white;
+					height: 600px;
+					display: block;
+					padding: 20px;
+					border-radius: 25px;
+					font-size: 25px;
+					font-family: times new roman;
+					user-select: none;
+				}
+
+				th {
+					width: 100px;
+					margin: 10px;
+				}
+
+				td {
+					text-align: center;
+					height: 70px;
+					border-radius: 1000px;
+				}
+
+				h1 {
+					font-size: 60px;
+				}
+
+				sub {
+					font-size: 40px;
+					font-weight: heavy;
+					margin: 10px;
+				}
+
+				span.shadow {}
+			</style>
+			<div class="window content" id="window_sel_wc" style="overflow: hidden;user-select: none;">
+				<div style="text-align: center;">
+					<h1 id="window_sel_h"></h1>
+					<table id="window_sel_t" cellspacing="15px">
+						<thead>
+							<th>Sun</th>
+							<th>Mon</th>
+							<th>Tue</th>
+							<th>Wen</th>
+							<th>Thr</th>
+							<th>Fri</th>
+							<th>Sat</th>
+						</thead>
+						<tbody> </tbody>
+					</table>
+				</div>
+				<div onclick="window_sel.style.display='none'" class="floatingBtn" style="top: 50px;">×</div>
 			</div>
 
 			<script>
 				window_sel.style.display = "none";
 
-				init_window_sel = function() {
-					window_import_data.value = '';
+				open_window_sel = function() {
+					window_ds_open(dateselector_d.getFullYear(), dateselector_d.getMonth() + 1);
+					window_sel.style.display = "block";
 				}
 
-				function window_sel_submit() {
+				function window_sel_submit(seldate) {
+					switch_date(dateselector_d.getFullYear(), dateselector_d.getMonth() + 1, seldate);
+					window_sel.style.display = "none";
+				}
+
+				function window_ds_open(year, month) {
+					function getCountDays() {
+						var curDate = new Date(`${year}-${month}-1`);
+						// 获取当前月份
+						// 将日期设置为32，表示自动计算为下个月的第几天（这取决于当前月份有多少天）
+						curDate.setDate(32);
+						// 返回当前月份的天数
+						return 32 - curDate.getDate();
+					}
+
+					var d = new Date(`${year}-${month}-1`);
+
+					h = document.getElementById("window_sel_h") // 标题
+					a = d.getDay() // align date
+					b = getCountDays() // 一个月有几天
+
+					h.innerHTML =
+						`<span class=smdl onclick="ds_month(-1)">&#xe76b;</span> <span class=shadow>${mons[month-1]}</span><sub>/ ${year}</sub> <span class=smdl onclick="ds_month(1)">&#xe76c;</span>`;
+
+					// 背景色
+					window_sel_wc.style.background = `linear-gradient(-45deg, #ccab50 50%, #ffd664 50%)`;
+
+					// table
+					t = document.getElementById("window_sel_t").children[1];
+					t.innerHTML =
+						"<tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr>"
+
+					for (var i = a; i < b + a; i++) {
+						console.log(t.children)
+						c = t.children[Math.floor(i / 7)].children[(i) % 7];
+						c.innerText = `${i+1-a}`;
+
+						let flag = false;
+						// selected day
+						if (equ2(new Date(`${date.year}-${date.mon}-${date.date}`), new Date(`${year}-${month}-${c.innerText}`))) {
+							c.style.background = "linear-gradient(45deg, #0004, transparent)";
+							flag = true;
+						}
+						// a day with a diary
+						if (diary[year] && diary[year][month] && diary[year][month][c.innerText])
+							if (flag)
+								c.style.background = "linear-gradient(45deg, #ccab5077, transparent)";
+							else
+								c.style.backgroundColor = "#ccab5066";
+
+						c.onclick = function() {
+							window_sel_submit(this.innerText)
+						}
+					}
 				}
 			</script>
 		</div>
