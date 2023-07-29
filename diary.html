@@ -28,11 +28,7 @@
 				border-radius: 10px;
 				padding: 10px;
 				background-color: #cfac7455;
-			}
-
-			.card>p {
-				text-indent: 2ch;
-				word-break: break-all;
+				min-height: 5em;
 			}
 
 			.floatingBtn {
@@ -183,6 +179,8 @@
 				today.split('\0').forEach(content => {
 					create_card(sec_decode(content), true);
 				})
+				if (equ(TODAY, date))
+					create_card();
 
 				if (arg1 != 1) {
 					var today_date = new Date(`${date.year}-${date.mon}-${date.date}`);
@@ -243,8 +241,13 @@
 					if (extract_text(x).trim() != '')
 						today.push(sec_encode(extract_text(x)));
 				}
-				today = today.join('\0');
-				diary[date.year][date.mon][date.date] = today;
+
+				if (today.length == 0) {
+					delete diary[date.year][date.mon][date.date];
+				} else {
+					today = today.join('\0');
+					diary[date.year][date.mon][date.date] = today;
+				}
 				localStorage.diary = JSON.stringify(diary);
 			}
 
@@ -292,6 +295,11 @@
 					window_sel_h.style.zoom = 0.7;
 					window_sel_t.style.zoom = 0.7;
 				}
+				if (window.innerHeight < 750 * Number(window_sel_h.style.zoom || 1)) {
+					window_sel_h.style.zoom = window.innerHeight / 850;
+					window_sel_t.style.zoom = window.innerHeight / 850;
+					console.log(window_sel_h.style.zoom)
+				}
 			}
 
 			document.body.onclick = store;
@@ -306,7 +314,6 @@
 						init_window_import();
 						window_import.style.display = "block";
 				}
-
 			}
 		</script>
 
@@ -495,7 +502,6 @@
 						"<tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr> <tr> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> <td></td> </tr>"
 
 					for (var i = a; i < b + a; i++) {
-						console.log(t.children)
 						c = t.children[Math.floor(i / 7)].children[(i) % 7];
 						c.innerText = `${i+1-a}`;
 
