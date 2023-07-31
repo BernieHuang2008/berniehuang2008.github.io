@@ -53,13 +53,16 @@
 
 			.loca {
 				width: max-content;
-				max-width: 80vw;
+				max-width: min(700px, 80vw);
 				text-overflow: ellipsis;
 				margin: auto;
 				padding: 5px 10px 5px 10px;
 				background-color: #7773;
 				border-radius: 5px;
 				margin-top: 10px;
+				white-space: nowrap;
+				overflow: hidden;
+				opacity: 75%;
 			}
 
 			.loca::before {
@@ -75,6 +78,7 @@
 				background-color: #7773;
 				border-radius: 5px;
 				margin-top: 10px;
+				opacity: 75%;
 			}
 
 			.card {
@@ -85,6 +89,7 @@
 				padding: 10px;
 				background-color: #cfac7455;
 				min-height: 5em;
+				opacity: 75%;
 			}
 
 			.floatingBtn {
@@ -210,6 +215,29 @@
 
 			.timestamp.loca_ts {
 				bottom: -10px;
+			}
+
+			.card+.timestamp {
+				display: none;
+			}
+			
+			.card:has(+.timestamp+.loca) {
+			    border-bottom: none;
+			    border-bottom-right-radius: 0;
+			    border-bottom-left-radius: 0;
+			}
+
+			.card+.timestamp+.loca {
+				width: min(640px, calc(100% - 40px - 2ch)) !important;
+				position: relative;
+				top: -20px;
+				    width: calc(min(640px, calc(100% - 40px - 2ch)) - 4px) !important;
+				    position: relative;
+				    top: -20px;
+				    border-top-right-radius: 0;
+				    border-top-left-radius: 0;
+				    border: solid #cfac74 2px;
+				    border-top: 0;
 			}
 		</style>
 		<script>
@@ -430,6 +458,16 @@
 				if (force || !$('.card') || $('.card').innerText.trim() != '') {
 					var item = [force || new Date().toString(), TIMELINE_CARD];
 
+					var coords = $('.loca').innerText.match(/\([0-9].+?\)/g)[0].replace('(', '').replace(')', '').split(',');
+					var addr = $('.loca').innerText.match(/ at .+?\([0-9]/g)[0];
+					process_location({
+						coord: {
+							latitude: Number(coords[0]), //纬度
+							longitude: Number(coords[1]) //经度
+						},
+						address: addr.substring(4, addr.length - 2)
+					}, true);
+
 					w_today.innerHTML =
 						`${timestamp(item[0], 'card')}<div data-timeline=true data-time='${item[0]}' data-class='${item[1]}' class='card' ${equ(TODAY, date)?'contenteditable':''}></div> ${w_today.innerHTML}`;
 
@@ -449,18 +487,25 @@
 			}
 
 			function update_location() {
-				new plus.maps.Map("map-obj").getUserLocation((state, point) => {
-					if (state == -1) {
-						plus.maps.Map.reverseGeocode(point, {}, event => {
-							process_location(event);
-						})
-					} else {
-						console.log("获取定位失败，错误码：", state);
-						navigator.geolocation.getCurrentPosition(process_location, console.log, {
-							provider: "system"
-						});
-					}
-				});
+				if (window.has_plus) {
+					new plus.maps.Map("map-obj").getUserLocation((state, point) => {
+						if (state == -1) {
+							plus.maps.Map.reverseGeocode(point, {}, event => {
+								process_location(event);
+							})
+						} else {
+							console.log("获取定位失败，错误码：", state);
+							navigator.geolocation.getCurrentPosition(process_location, console.log, {
+								provider: "system"
+							});
+						}
+					})
+				} else {
+					navigator.geolocation.getCurrentPosition(process_location, console.log, {
+						provider: "system"
+					});
+					return;
+				}
 			}
 
 			document.addEventListener('plusready', function() {
@@ -469,12 +514,16 @@
 
 			window.onload = function() {
 				load();
-				if (navigator.userAgent.indexOf('Html5Plus/1.0') != -1) { // mobile app
+				if (navigator.userAgent.indexOf('Html5Plus/1.0') != -1) {
+					// mobile app
 					window.has_plus = true;
+
+					document.addEventListener('keyboardchange', update_store);
+					document.addEventListener('resume', update_location);
 				} else {
 					navigator.geolocation.watchPosition(process_location, console.log, {
 						provider: "system"
-					});
+					})
 				}
 
 				if (window.innerWidth < 900) {
@@ -495,12 +544,14 @@
 
 			}
 
-			document.body.onclick = function(e) {
-				if (e.target.dataset.nostore != 'true') {
+			function update_store(e) {
+				if (window_import.style.display == 'none') {
+					// not importing.
 					store();
-					update_location();
 				}
-			};
+			}
+
+			document.body.onclick = document.body.onkeyup = update_store;
 
 			function cmd() {
 				var cmd = prompt("Command:");
@@ -618,7 +669,7 @@
 				});
 			}
 
-			function process_location(position) {
+			function process_location(position, force_same) {
 				if (!equ(date, TODAY))
 					return 'not this day!';
 
@@ -637,7 +688,7 @@
 					return 'unprecise';
 				}
 				var min_delta = 750 + acc / 2;
-				var name = ""; // 位置名称 
+				var name = position.address || ""; // 位置名称 
 
 				if (window.has_plus && position.address) {
 					var addr = position.address;
@@ -654,6 +705,7 @@
 					}
 					return;
 				}
+
 				var last_pos = $('.loca').innerText.match(/\([0-9].+?[0-9]\)/g)[0].replace('(', '').replace(')', '').split(',');
 				var last_lati = Number(last_pos[0]);
 				var last_long = Number(last_pos[1]);
@@ -662,8 +714,9 @@
 				var delta_long = (last_long - long) * 4e5; // meter 
 				var same_pos = (Math.pow(delta_lati, 2) + Math.pow(delta_long, 2) < Math.pow(min_delta, 2));
 
+
 				if (same_pos) {
-					if (new Date() - new Date($('.loca').dataset.time) > 60 * 60 * 1000) {
+					if (force_same && new Date() - new Date($('.loca').dataset.time) > 60 * 60 * 1000) {
 						// 1 hour
 						if (!name) {
 							amap_js_api(long, lati, function() {
@@ -689,10 +742,11 @@
 
 			function create_location(content, time) {
 				time = time || new Date().toString();
-				w_today.innerHTML =
-					`${timestamp(time, 'loca')} <div data-timeline=true data-time='${time}' data-class='${TIMELINE_LOCA}'
-				class='loca'>${content}</div>${w_today.innerHTML}`;
-				store();
+				if (equ(TODAY, date)) {
+					w_today.innerHTML =
+						`${timestamp(time, 'loca')} <div data-timeline=true data-time='${time}' data-class='${TIMELINE_LOCA}' class='loca'>${content}</div>${w_today.innerHTML}`;
+					store();
+				}
 			}
 		</script>
 
