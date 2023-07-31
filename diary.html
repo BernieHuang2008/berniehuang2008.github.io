@@ -11,14 +11,70 @@
 				width: 100vw;
 				min-height: 100vh;
 				overflow-x: hidden;
-				display: flex;
-				justify-content: center;
+				background-size: cover;
+				background-repeat: no-repeat;
+				/* background: url("img/IMG_20220804_190219.jpg") fixed; */
 			}
 
 			#w_today {
 				max-width: 700px;
 				width: calc(100vw - 40px);
-				margin-top: 50px;
+				margin-top: 20px;
+				margin: auto;
+				padding-bottom: 10px;
+			}
+
+			#moodsel {
+				margin-top: 80px !important;
+				backdrop-filter: blur(10px);
+				width: max-content;
+				margin: auto;
+				padding: 2px 4px 2px 4px;
+				background-color: #6663;
+				border-radius: 6px;
+				transition: .3s;
+			}
+
+			#moodsel>button {
+				width: 40px;
+				height: 40px;
+				font-size: 20px;
+				border-radius: 5px;
+				border: 0;
+				background-color: #fff5;
+				margin: 2px;
+				box-shadow: none;
+				transition: .3s;
+			}
+
+			#moodsel>button.focus {
+				box-shadow: 0 2px 2px 0 rgba(26, 24, 29, .16), 0 1px 4px 0 rgba(26, 24, 29, .12);
+			}
+
+			.loca {
+				width: max-content;
+				max-width: 80vw;
+				text-overflow: ellipsis;
+				margin: auto;
+				padding: 5px 10px 5px 10px;
+				background-color: #7773;
+				border-radius: 5px;
+				margin-top: 10px;
+			}
+
+			.loca::before {
+				content: ' ';
+				font-family: 'SMDL';
+				color: orange;
+			}
+
+			.mood {
+				width: max-content;
+				margin: auto;
+				padding: 5px 10px 5px 10px;
+				background-color: #7773;
+				border-radius: 5px;
+				margin-top: 10px;
 			}
 
 			.card {
@@ -52,7 +108,7 @@
 
 			#datetab {
 				user-select: none;
-				height: 50px;
+				height: 52px;
 				width: 100vw;
 				position: fixed;
 				top: 0;
@@ -60,7 +116,8 @@
 				padding: 5px;
 				display: block;
 				backdrop-filter: blur(10px);
-				background-color: #d4be7344;
+				background-color: #cfac7444;
+				z-index: 1000;
 			}
 
 			#datetab>button {
@@ -68,8 +125,10 @@
 				height: 50px;
 				font-size: 30px;
 				display: inline-block;
-				border: none;
-				background-color: transparent;
+				border: 0;
+				border-radius: 5px;
+				background-color: #fff5;
+				box-shadow: none;
 			}
 
 			#datetab>button:not(.smdl) {
@@ -97,14 +156,18 @@
 				border: 0;
 				background-color: transparent;
 				transition: .1s;
+				border: 0;
+				border-radius: 5px;
+				box-shadow: none;
 			}
 
 			#dateweek>button:hover {
-				border: solid 0.5px grey;
+				box-shadow: 0 2px 2px 0 rgba(26, 24, 29, .16), 0 1px 4px 0 rgba(26, 24, 29, .12);
 			}
 
 			#dateweek>button.focus {
-				background: linear-gradient(45deg, #0004, transparent);
+				background-color: #fff5;
+				box-shadow: 0 2px 2px 0 rgba(26, 24, 29, .16), 0 1px 4px 0 rgba(26, 24, 29, .12);
 			}
 
 			#dateweek>button>h2 {
@@ -115,7 +178,7 @@
 				color: grey;
 			}
 
-			#datetab>h1 {
+			#datetab>h2 {
 				margin: 0;
 				position: fixed;
 				left: 10px;
@@ -130,6 +193,24 @@
 			.smdl {
 				font-family: 'SMDL';
 			}
+
+			.timestamp {
+				font-size: 0.8em;
+				position: relative;
+				color: grey;
+			}
+
+			.timestamp.card_ts {
+				bottom: -20px;
+			}
+
+			.timestamp.mood_ts {
+				bottom: -10px;
+			}
+
+			.timestamp.loca_ts {
+				bottom: -10px;
+			}
 		</style>
 		<script>
 			function $(q) {
@@ -138,6 +219,19 @@
 
 			function $$(q) {
 				return document.querySelectorAll(q);
+			}
+
+			var HttpClient = function() {
+				this.get = function(aUrl, aCallback) {
+					var anHttpRequest = new XMLHttpRequest();
+					anHttpRequest.onreadystatechange = function() {
+						if (anHttpRequest.readyState == 4 && anHttpRequest.status == 200)
+							aCallback(anHttpRequest.responseText);
+					}
+
+					anHttpRequest.open("GET", aUrl, true);
+					anHttpRequest.send(null);
+				}
 			}
 		</script>
 	</head>
@@ -158,14 +252,17 @@
 		<script>
 			var diary;
 			var date = new Date();
-			var today = "";
 			var dateselector_d = new Date();
 			const TODAY = {
 				year: date.getFullYear(),
 				mon: date.getMonth() + 1,
 				date: date.getDate()
 			};
-			date = TODAY
+			date = TODAY;
+
+			const TIMELINE_CARD = 1;
+			const TIMELINE_MOOD = 2;
+			const TIMELINE_LOCA = 3;
 
 			function load(arg1) {
 				w_today.innerHTML = "";
@@ -174,18 +271,50 @@
 
 				var diary_year = diary[date.year] = diary[date.year] || {};
 				var diary_mon = diary_year[date.mon] = diary_year[date.mon] || {};
-				today = diary_mon[date.date] || sec_encode('\n');
+				var today = diary_mon[date.date] || sec_encode(`\0${TIMELINE_CARD}\0`);
 
 				today.split('\0').forEach(content => {
-					create_card(sec_decode(content), true);
+					let item = sec_decode(content).split('\0');
+					switch (Number(item[1])) {
+						case TIMELINE_CARD:
+							create_card(item[2], item[0]);
+							break;
+						case TIMELINE_MOOD:
+							create_mood(item[2], item[0]);
+							break;
+						case TIMELINE_LOCA:
+							create_location(item[2], item[0]);
+							break;
+						default:
+							console.log("Unknown class:", item[1]);
+							// create_card(item[0]);
+							console.log(item);
+							window.globalerror = item[1]
+					}
 				})
-				if (equ(TODAY, date))
-					create_card();
+				if (equ(TODAY, date)) {
+					/* mood */
+					if (!$('.mood'))
+						moodsel.style.opacity = "100%";
+					else {
+						if (new Date() - new Date($('.mood').dataset.time) < 10 * 60 * 1000)
+							moodsel.style.opacity = "40%";
+						else
+							moodsel.style.opacity = "100%";
+					}
+
+					/* card */
+					// create_card();
+				} else {
+					moodsel.style.opacity = "0%";
+				}
 
 				if (arg1 != 1) {
 					var today_date = new Date(`${date.year}-${date.mon}-${date.date}`);
 					switch_week(today_date);
 				}
+
+				dateselector_d = new Date(`${date.year}-${date.mon}-${date.date}`);
 			}
 
 			const days = ['Sun', 'Mon', 'Tue', 'Wen', 'Tur', 'Fri', 'Sat'];
@@ -234,13 +363,38 @@
 				switch_date(dateselector_d.getFullYear(), dateselector_d.getMonth() + 1, dateselector_d.getDate())
 			}
 
-			function store() {
-				today = [];
+			function gen_timeline(filter) {
+				var timeline = [];
 				for (var i = w_today.children.length - 1; i >= 0; i--) {
 					x = w_today.children[i];
-					if (extract_text(x).trim() != '')
-						today.push(sec_encode(extract_text(x)));
+					if (x.dataset.timeline == 'true') {
+						var item = [x.dataset.time, x.dataset.class, x.innerText];
+						if (filter) {
+							var flag = false;
+
+							filter.forEach(f => {
+								if (item[f[0]].indexOf(f[1]) == -1)
+									flag = true;
+							})
+
+							if (flag)
+								continue;
+						}
+						timeline.push(item);
+					}
 				}
+				return timeline;
+			}
+
+			function store() {
+				var today = [];
+				var timeline = gen_timeline();
+
+				timeline.forEach(item => {
+					if (item[2].trim() != '') {
+						today.push(sec_encode(item.join('\0')));
+					}
+				})
 
 				if (today.length == 0) {
 					delete diary[date.year][date.mon][date.date];
@@ -263,12 +417,24 @@
 				return a.getFullYear() == b.getFullYear() && a.getMonth() == b.getMonth() && a.getDate() == b.getDate();
 			}
 
+			function timestamp(time, mode) {
+				var time = new Date(time);
+				var hour = String(time.getHours());
+				var minute = String(time.getMinutes());
+
+				return `<span class='timestamp ${mode}_ts'>${hour.padStart(2,'0')}:${minute.padStart(2,'0')}</span>`;
+			}
+
 			function create_card(text, force) {
 				text = text || '';
 				if (force || !$('.card') || $('.card').innerText.trim() != '') {
-					w_today.innerHTML = `<div class=card ${equ(TODAY, date)?'contenteditable':''}></div>` + w_today
-						.innerHTML;
+					var item = [force || new Date().toString(), TIMELINE_CARD];
+
+					w_today.innerHTML =
+						`${timestamp(item[0], 'card')}<div data-timeline=true data-time='${item[0]}' data-class='${item[1]}' class='card' ${equ(TODAY, date)?'contenteditable':''}></div> ${w_today.innerHTML}`;
+
 					$('.card').innerText = text;
+					store();
 				}
 			}
 
@@ -282,8 +448,35 @@
 				load();
 			}
 
+			function update_location() {
+				new plus.maps.Map("map-obj").getUserLocation((state, point) => {
+					if (state == -1) {
+						plus.maps.Map.reverseGeocode(point, {}, event => {
+							process_location(event);
+						})
+					} else {
+						console.log("获取定位失败，错误码：", state);
+						navigator.geolocation.getCurrentPosition(process_location, console.log, {
+							provider: "system"
+						});
+					}
+				});
+			}
+
+			document.addEventListener('plusready', function() {
+				update_location();
+			})
+
 			window.onload = function() {
 				load();
+				if (navigator.userAgent.indexOf('Html5Plus/1.0') != -1) { // mobile app
+					window.has_plus = true;
+				} else {
+					navigator.geolocation.watchPosition(process_location, console.log, {
+						provider: "system"
+					});
+				}
+
 				if (window.innerWidth < 900) {
 					ds_year.style.display = "none";
 				}
@@ -298,11 +491,16 @@
 				if (window.innerHeight < 750 * Number(window_sel_h.style.zoom || 1)) {
 					window_sel_h.style.zoom = window.innerHeight / 850;
 					window_sel_t.style.zoom = window.innerHeight / 850;
-					console.log(window_sel_h.style.zoom)
 				}
+
 			}
 
-			document.body.onclick = store;
+			document.body.onclick = function(e) {
+				if (e.target.dataset.nostore != 'true') {
+					store();
+					update_location();
+				}
+			};
 
 			function cmd() {
 				var cmd = prompt("Command:");
@@ -313,12 +511,193 @@
 					case 'import':
 						init_window_import();
 						window_import.style.display = "block";
+						break;
+					case 'debug':
+						var sc = document.createElement('script');
+						sc.src = "https://cdn.bootcss.com/vConsole/3.3.4/vconsole.min.js";
+						$("#hidden-div").appendChild(sc);
+						setTimeout(() => {
+							var vConsole = new VConsole();
+						}, 500);
+
+						break;
 				}
+			}
+
+			function select_mood(mood, emoji) {
+				if (change_mood(mood, emoji) == 'del') {
+					mood = 'all need to be unfocused.';
+				}
+				$$("#moodsel>button").forEach(child => {
+					if (child.title == mood) {
+						child.classList.add("focus");
+					} else {
+						child.classList.remove("focus");
+					}
+				})
+			}
+
+			function change_mood(mood, emoji) {
+				var emoji_regex = /(\ud83c[\udf00-\udfff])|(\ud83d[\udc00-\ude4f\ude80-\udeff])|[\u2600-\u2B55]/g;
+
+				var timeline = gen_timeline([
+					[1, TIMELINE_MOOD]
+				]);
+
+				var last_mood = timeline[timeline.length - 1] || [0, TIMELINE_MOOD, ''];
+				var lastlmood = timeline[timeline.length - 2] || [0, TIMELINE_MOOD, ''];
+				var last_mood_time = new Date(last_mood[0]);
+				var last_mood_same = (last_mood[2].match(emoji) == emoji);
+
+				if (new Date() - last_mood_time > 10 * 60 * 1000) { // 10 min
+					// new mood.
+					var content = "";
+					if (last_mood_same) {
+						content = "Still " + mood + emoji;
+					} else {
+						content = "Become " + mood + emoji;
+					}
+					var item = [new Date().toString(), TIMELINE_MOOD];
+					create_mood(content, item[0]);
+				} else {
+					// change mood.
+					if (last_mood_same) {
+						// press the same button, revoke the prev mood.
+						$('.mood_ts').remove();
+						$('.mood').remove();
+						moodsel.style.opacity = "100%";
+						return 'del';
+					}
+					var content = "";
+					last_mood = lastlmood;
+					last_mood_same = (last_mood[2].match(emoji_regex) == emoji);
+
+					if (last_mood_same) {
+						content = "Still " + mood + emoji;
+					} else {
+						content = "Become " + mood + emoji;
+					}
+					var item = [new Date().toString(), TIMELINE_MOOD];
+					$('.mood').dataset.time = item[0];
+					$('.mood').innerHTML = content;
+				}
+			}
+
+			function create_mood(content, time) {
+				moodsel.style.opacity = "40%";
+
+				w_today.innerHTML =
+					`${timestamp(time, 'mood')}<div data-timeline=true data-time='${time || new Date().toString()}' data-class='${TIMELINE_MOOD}' class='mood'>${content}</div> ${w_today.innerHTML}`;
+
+				store();
+			}
+
+			function amap_js_api(long, lati, cback) {
+				// amap js api
+				const AMAP_KEY = "0000731dfe185f57e0e23223b14db3de";
+
+				var http = new HttpClient();
+
+				function six(inti) {
+					var s = String(inti);
+					return s.match(/[0-9]{1,3}\.[0-9]{1,6}/g)[0]
+				}
+				var url =
+					`https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_KEY}&location=${six(long)},${six(lati)}&extensions=base`;
+				http.get(url, res => {
+					res = JSON.parse(res);
+					window.regeo_name = "";
+					if (res.infocode != "10000") {
+						cback();
+						console.log(res)
+						return console.log("Amap reGeo js api error. Error Code:", res.infocode);
+					}
+					window.regeo_name = res.regeocode.formatted_address;
+					cback();
+					window.regeo_name = null;
+				});
+			}
+
+			function process_location(position) {
+				if (!equ(date, TODAY))
+					return 'not this day!';
+
+				console.log(JSON.stringify(position));
+				var c = position.coords || position.coord;
+				if (c.speed)
+					return 'moving';
+
+				var acc = c.accuracy || 150; // 精度
+				let lati = c.latitude; // 纬度
+				let long = c.longitude; // 经度
+				console.log("定位精度：", acc);
+
+				if (acc > 400 ||
+					String(lati).length - String(lati).indexOf('.') < 4 || String(long).length - String(long).indexOf('.') < 4) {
+					return 'unprecise';
+				}
+				var min_delta = 750 + acc / 2;
+				var name = ""; // 位置名称 
+
+				if (window.has_plus && position.address) {
+					var addr = position.address;
+					name = addr.street || addr.poiName || addr.district || addr;
+				}
+
+				if (!$('.loca')) {
+					if (!name) {
+						amap_js_api(long, lati, function() {
+							create_location(`Arrive at ${window.regeo_name}(${lati}, ${long})`);
+						})
+					} else {
+						create_location(`Arrive at ${name}(${lati}, ${long})`);
+					}
+					return;
+				}
+				var last_pos = $('.loca').innerText.match(/\([0-9].+?[0-9]\)/g)[0].replace('(', '').replace(')', '').split(',');
+				var last_lati = Number(last_pos[0]);
+				var last_long = Number(last_pos[1]);
+
+				var delta_lati = (last_lati - lati) * 4e5; // meter 
+				var delta_long = (last_long - long) * 4e5; // meter 
+				var same_pos = (Math.pow(delta_lati, 2) + Math.pow(delta_long, 2) < Math.pow(min_delta, 2));
+
+				if (same_pos) {
+					if (new Date() - new Date($('.loca').dataset.time) > 60 * 60 * 1000) {
+						// 1 hour
+						if (!name) {
+							amap_js_api(long, lati, function() {
+								create_location(`Still at ${window.regeo_name}(${lati}, ${long})`);
+							})
+						} else {
+							create_location(`Still at ${name}(${lati}, ${long})`);
+						}
+					}
+				} else {
+					if (new Date() - new Date($('.loca').dataset.time) > 20 * 60 * 1000) {
+						// 20 min
+						if (!name) {
+							amap_js_api(long, lati, function() {
+								create_location(`Arrive at ${window.regeo_name}(${lati}, ${long})`);
+							})
+						} else {
+							create_location(`Arrive at ${name}(${lati}, ${long})`);
+						}
+					}
+				}
+			}
+
+			function create_location(content, time) {
+				time = time || new Date().toString();
+				w_today.innerHTML =
+					`${timestamp(time, 'loca')} <div data-timeline=true data-time='${time}' data-class='${TIMELINE_LOCA}'
+				class='loca'>${content}</div>${w_today.innerHTML}`;
+				store();
 			}
 		</script>
 
 		<div id="datetab">
-			<h1 id="ds_year"></h1>
+			<h2 id="ds_year"></h2>
 			<button class=smdl
 				onclick="date=TODAY;load();switch_week(new Date(`${TODAY.year}-${TODAY.mon}-${TODAY.date}`))"
 				ondblclick="cmd()">&#xecaf;</button>
@@ -328,12 +707,16 @@
 			<button class=smdl onclick="open_window_sel()">&#xED28;</button>
 		</div>
 
+		<div id="moodsel">
+			<button onclick="select_mood(this.title, this.innerText)" title="Happy">😄</button>
+			<button onclick="select_mood(this.title, this.innerText)" title="Sad">😢</button>
+			<button onclick="select_mood(this.title, this.innerText)" title="Angry">😠</button>
+			<button onclick="select_mood(this.title, this.innerText)" title="Shock">😱</button>
+		</div>
+
 		<div id="w_today">
 		</div>
 		<div onclick="create_card()" class="floatingBtn">+</div>
-
-
-
 
 		<style>
 			.window.container {
@@ -379,7 +762,7 @@
 				</center>
 				<textarea placeholder="Data ..." id="window_import_data"></textarea>
 				<div onclick="window_import.style.display='none'" class="floatingBtn" style="top: 50px;">×</div>
-				<div onclick="window_import_import()" class="floatingBtn">√</div>
+				<div onclick="window_import_import()" class="floatingBtn" data-nostore=true>√</div>
 			</div>
 
 			<script>
@@ -402,7 +785,7 @@
 
 		<div id="window_sel" class="window container">
 			<style>
-				.window.content {
+				#window_sel_wc {
 					display: flex;
 					justify-content: center;
 					align-items: center;
@@ -524,6 +907,9 @@
 					}
 				}
 			</script>
+		</div>
+		<div id="hidden-div" style="display: none;">
+			<div id="map-obj"></div>
 		</div>
 	</body>
 </html>
