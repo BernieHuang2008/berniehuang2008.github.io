@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>gSec Animation</title>
+		<style>
+			.icon {
+				position: relative;
+				top: 0;
+
+				width: 500px;
+				height: 500px;
+				z-index: 1;
+			}
+
+			img {
+				width: 500px;
+			}
+
+			.badge,
+			.badge>img {
+				max-width: 100px;
+				max-height: 100px;
+			}
+
+			.badge>img {
+				width: 50px;
+				height: 50px;
+				position: relative;
+				top: -22px;
+				left: 25px;
+				animation: smaller 1.5s ease-in-out;
+			}
+
+			.cover {
+				position: relative;
+				top: -331px;
+				left: 140.9px;
+				width: 220px;
+				height: 208px;
+				animation: keyhole 1.2s ease-out;
+				z-index: 100;
+			}
+
+			.cover2 {
+				position: relative;
+				top: -539px;
+				left: 140.9px;
+				width: 220px;
+				height: 208px;
+				background-color: #c6c6c6;
+				z-index: 5;
+			}
+
+			.badge {
+				position: relative;
+				top: 325px;
+				left: 200px;
+				z-index: 50;
+				animation: badge 1.2s linear;
+			}
+
+			@keyframes badge {
+				0% {
+					color: darkgoldenrod;
+					filter: hue-rotate(360deg);
+					width: 100px;
+					height: 100px;
+				}
+
+				33% {
+					filter: hue-rotate(0deg);
+				}
+
+				66% {
+					filter: hue-rotate(360deg);
+				}
+
+				100% {
+					color: silver;
+					filter: hue-rotate(0deg);
+				}
+			}
+
+			@keyframes keyhole {
+				from {
+					background-color: #c6c6c6AA;
+					backdrop-filter: blur(70px);
+				}
+
+
+				to {
+					background-color: #c6c6c600;
+					backdrop-filter: blur(0);
+				}
+			}
+
+			@keyframes smaller {
+
+				/* delay */
+				0% {
+					position: relative;
+					top: 0;
+					left: 0;
+					width: 100px;
+					height: 100px;
+				}
+
+				66.6% {
+					position: relative;
+					top: 0;
+					left: 0;
+					width: 100px;
+					height: 100px;
+				}
+
+				100% {
+					position: relative;
+					top: -22px;
+					left: 25px;
+					width: 50px;
+					height: 50px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<h1>G-Security</h1>
+		<div style="height: 512px;overflow: hidden;position: relative;top: -100px;margin-bottom:-100px;">
+			<div class="badge"><img src="https://berniehuang2008.github.io/icons/colorful.png" /></div>
+			<div class="icon"><img src="https://berniehuang2008.github.io/icons/gSec.png"></div>
+			<div class="cover"></div>
+			<div class="cover2"></div>
+		</div>
+		<h1>Protect Security, Protect All.</h1>
+	</body>
+</html>
