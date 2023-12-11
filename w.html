@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+	<link rel="icon" type="image/png" href="favicon.png" />
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Web Mark</title>
+    <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      position: absolute;
+    }
+    
+    #a, #b {
+      width: 50vw;
+      height: 100vh;
+      float: left
+    }
+  
+    #a{background: #ddd;}
+    #b{background: #fff;}
+    
+    .n {
+      padding: 10px;
+      font-size: big;
+      border: solid black 1px;
+      margin: 5px;
+      width: max-content;
+      float: left;
+    }
+  
+    .n.s {
+      border-color: red;
+      background: rgba(225, 0, 0, .3);
+    }
+  
+    .f {
+      background: skyblue;
+      border-color: blue;
+    }
+  
+    .g {
+      background: #ddd;
+      border-color: grey;
+      color: grey;
+    }
+    
+    </style>
+  </head>
+  <body>
+  
+	<div id="a">
+    </div>
+    
+    <div id="b">
+    </div>
+    
+    <div id="c">
+    </div>
+    
+    <script>
+    a = document.getElementById("a");
+    b = document.getElementById("b");
+    
+    
+    [
+      "陈乐伊", 
+      "乐婧伊",
+      "曾子益",
+      "陈泽鑫",
+      "陈子轩",
+      "杨茗皓",
+      "殷子琦",
+      "胡浩宇",
+      "冉奥麟",
+      "高嘉彬",
+      "刘文昕",
+      "陈奕程",
+      "喻承希",
+      "黄锦源",
+      "江颢熙",
+      "张海文",
+      "陈朗",
+    ].sort().forEach(n => {
+      a.innerHTML += `
+      <div class='n' onclick="c(this)">
+        ${n}
+      </div>
+      `
+    })
+  
+    function ib(d) { 
+      d = d||"";
+      
+      b.innerHTML="";
+      [
+        "A", "B", "C", "+", "纠"
+      ].forEach(n => {
+        s = d.indexOf(n)==-1?"":"s";
+        b.innerHTML += `
+        <div class='n ${s}' onclick="if(this.classList.contains('s'))this.classList.remove('s');else this.classList.add('s')">
+          ${n}
+        </div>
+        `
+      })
+    }
+  
+    fo=0;
+    function c(t) {
+      if (fo) {
+        fo.classList.remove("f");
+        fo.classList.add("g");
+        fo.dataset.x = "";
+        document.querySelectorAll(".n.s").forEach(e=>{
+          fo.dataset.x += e.innerText;
+        })
+      }
+    
+      fo = t;
+      fo.classList.remove("g");
+      fo.classList.add("f");
+      ib(fo.dataset.x||"");
+    }
+  
+    a.onclick = function(e) {
+      if(!e.target.classList.contains("n"))
+        c(0);
+    }
+    </script>
+  </body>
+</html>
