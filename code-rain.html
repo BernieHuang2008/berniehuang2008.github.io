@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>文字雨效果</title>
+	</head>
+	<canvas id="matrix"></canvas>
+	</body>
+	<style>
+		body {
+			margin: 0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background-color: black;
+			height: 100vh;
+			overflow: hidden;
+			color: lime;
+			font-family: monospace;
+			font-size: 20px;
+		}
+
+		#matrix {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+		}
+	</style>
+
+	<script>
+    const args = window.location.href.split('#')[1].trim();
+    const TEXT = args.split(',')[0] || "CODING";
+    
+		const canvas = document.getElementById('matrix');
+		const context = canvas.getContext('2d');
+
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+
+		const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		const fontSize = 16;
+		const columns = canvas.width / fontSize;
+
+		const drops = Array.from({
+			length: columns
+		}, () => 1);
+
+		// 用于保存“CODING”字样路径的canvas离屏对象
+		const offscreenCanvas = document.createElement('canvas');
+		const offscreenContext = offscreenCanvas.getContext('2d');
+		offscreenCanvas.width = canvas.width;
+		offscreenCanvas.height = canvas.height;
+
+		// 设置字体
+		F_SIZE = Number(args.split(',')[1]);
+		offscreenContext.font = 'bold ' + F_SIZE + 'px "Jetbrains Mono"';
+		offscreenContext.fillStyle = 'white';
+		offscreenContext.textAlign = 'center';
+		offscreenContext.textBaseline = 'middle';
+
+		// 绘制“CODING”字样
+		offscreenContext.fillText(TEXT, offscreenCanvas.width / 2, offscreenCanvas.height / 2 + F_SIZE * 0.1);
+
+		// 获取图像数据
+		const imageData = offscreenContext.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+		const data = imageData.data;
+
+		function isInHighlightArea(x, y) {
+			// 确定 (x, y) 位置在绘制文字“CODING”区域内的图像数据index
+			const index = (Math.floor(y) * offscreenCanvas.width + Math.floor(x)) * 4;
+			return data[index + 3] > 128; // 检查 alpha 通道，是否超过阈值
+		}
+
+		var last_texts = [];
+		var last_texts_head = 0;
+		const N = 2 * canvas.height / fontSize;
+
+		function draw() {
+			context.fillStyle = 'rgba(0, 0, 0, 0.05)';
+			context.fillRect(0, 0, canvas.width, canvas.height);
+
+			// 加强上一行
+			for (let i = 1; i < drops.length; i++) {
+				const x = i * fontSize;
+
+				for (let j = 1; j < N; j++) {
+					const y = (drops[i] - j) * fontSize;
+
+					if (isInHighlightArea(x, y)) {
+						var lt = last_texts[(N + last_texts_head - j + 1) % N] || [];
+
+						context.fillStyle = 'rgba(0, 255, 0, 1)'
+
+						context.font = fontSize + 'px monospace';
+						context.fillText(lt[i], x, y);
+					}
+				}
+			}
+
+			last_texts_head++;
+			last_texts_head %= N;
+			last_texts[last_texts_head] = [];
+
+			// 处理这一行
+			for (let i = 0; i < drops.length; i++) {
+				const text = letters[Math.floor(Math.random() * letters.length)];
+				const x = i * fontSize;
+				const y = drops[i] * fontSize;
+
+				last_texts[last_texts_head].push(text);
+
+				if (isInHighlightArea(x, y)) {
+					context.fillStyle = 'rgba(0, 255, 0, 1)';
+				} else {
+					context.fillStyle = 'rgba(0, 255, 0, 0.4)';
+				}
+
+				context.font = fontSize + 'px monospace';
+				context.fillText(text, x, y);
+
+				if (y > canvas.height && Math.random() > 0.975) {
+					drops[i] = 0;
+				}
+
+				drops[i]++;
+			}
+		}
+
+		// 每帧绘制的时间间隔
+		setInterval(draw, 33);
+
+		window.addEventListener('resize', () => {
+			canvas.width = window.innerWidth;
+			canvas.height = window.innerHeight;
+			drops.length = Math.floor(canvas.width / fontSize);
+			for (let x = 0; x < drops.length; x++) {
+				drops[x] = 1;
+			}
+			offscreenCanvas.width = canvas.width;
+			offscreenCanvas.height = canvas.height;
+			offscreenContext.font = 'bold ' + (offscreenCanvas.height / 2) + 'px monospace';
+			offscreenContext.fillText(TEXT, offscreenCanvas.width / 2, offscreenCanvas.height / 2);
+			const imageData = offscreenContext.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+			const data = imageData.data;
+		});
+	</script>
+</html>
