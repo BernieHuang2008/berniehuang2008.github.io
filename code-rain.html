@@ -31,9 +31,9 @@
 	</style>
 
 	<script>
-    const args = window.location.href.split('#')[1].trim();
-    const TEXT = args.split(',')[0] || "CODING";
-    
+		const args = window.location.href.split('#')[1].trim();
+		const TEXT = args.split(',')[0] || "CODING";
+
 		const canvas = document.getElementById('matrix');
 		const context = canvas.getContext('2d');
 
@@ -69,6 +69,9 @@
 		const data = imageData.data;
 
 		function isInHighlightArea(x, y) {
+			x = x + fontSize / 2;
+			y = y + fontSize / 2;
+
 			// 确定 (x, y) 位置在绘制文字“CODING”区域内的图像数据index
 			const index = (Math.floor(y) * offscreenCanvas.width + Math.floor(x)) * 4;
 			return data[index + 3] > 128; // 检查 alpha 通道，是否超过阈值
