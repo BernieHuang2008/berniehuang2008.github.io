@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>树形结构可视化</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 100vw;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .buttons {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 10px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #005a9e;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .tree-container {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+            min-height: 200px;
+            overflow-x: auto;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tree-wrapper {
+            min-width: 100%;
+            width: max-content;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .tree-node {
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 250px;
+            max-width: 400px;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .tree-node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tree-node.success {
+            border-color: #28a745;
+            background-color: #f8fff9;
+        }
+
+        .tree-node.failed {
+            border-color: #dc3545;
+            background-color: #fff8f8;
+        }
+
+        .tree-node.neutral {
+            border-color: #6c757d;
+            background-color: #f8f9fa;
+        }
+
+        .node-action {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .node-explain {
+            color: #666;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .node-status {
+            display: flex;
+            gap: 15px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-success {
+            color: #28a745;
+        }
+
+        .status-failed {
+            color: #dc3545;
+        }
+
+        .status-neutral {
+            color: #6c757d;
+        }
+
+        .tree-level {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .tree-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .branch-connector {
+            width: 2px;
+            height: 30px;
+            background-color: #666;
+            margin: 10px 0;
+        }
+
+        .branch-split {
+            display: flex;
+            gap: 40px;
+            position: relative;
+        }
+
+        .branch-split::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            height: 2px;
+            background-color: #666;
+        }
+
+        .branch-split::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 15px;
+            background-color: #666;
+        }
+
+        .branch-child {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .path-label {
+            background-color: #007acc;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .path-label.no {
+            background-color: #dc3545;
+        }
+
+        .path-label.yes {
+            background-color: #28a745;
+        }
+
+        .error-message {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+            
+            .tree-node {
+                min-width: 200px;
+                max-width: 300px;
+            }
+            
+            .branch-split {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .branch-child {
+                align-items: center;
+            }
+
+            .tree-container {
+                padding: 10px;
+            }
+
+            .tree-wrapper {
+                padding: 10px;
+                min-width: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌳 树形结构可视化工具</h1>
+        
+        <div class="input-section">
+            <label for="treeInput">输入树的JSON数据：</label>
+            <textarea id="treeInput" placeholder="请粘贴您的JSON树数据到这里..."></textarea>
+            
+            <div class="buttons">
+                <button onclick="loadSampleTree()">加载示例数据</button>
+                <button onclick="parseTree()">解析并显示树</button>
+                <button onclick="clearTree()">清空</button>
+            </div>
+            
+            <div id="errorMessage"></div>
+        </div>
+        
+        <div class="tree-container" id="treeContainer">
+            <div class="empty-state">
+                请输入JSON数据并点击"解析并显示树"按钮来查看可视化结果
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 示例树数据
+        const sampleTreeData = {
+            "action": "Is the task to build cell phone towers on a road?",
+            "explain": "The task is about optimizing the placement of cell phone towers to cover houses along a road. The first step is to confirm the core problem.",
+            "isSuccess": false,
+            "isFailed": false,
+            "yes": {
+                "action": "Does the task require finding the minimum number of towers?",
+                "explain": "The task explicitly asks for the minimum number of towers to cover all houses. This is a key constraint.",
+                "isSuccess": false,
+                "isFailed": false,
+                "yes": {
+                    "action": "Is the problem solvable with a greedy algorithm?",
+                    "explain": "A greedy approach seems suitable. Place the first tower as far to the no as possible to cover the first house, then repeat for the next uncovered house. This is a common strategy for optimization problems like this one.",
+                    "isSuccess": true,
+                    "isFailed": false
+                },
+                "no": {
+                    "action": "Is the problem unsolvable with the provided information?",
+                    "explain": "The problem provides all necessary information (road layout, house locations, tower range). No further data is needed to solve it.",
+                    "isSuccess": true,
+                    "isFailed": false
+                }
+            },
+            "no": {
+                "action": "Is the task about a different type of optimization problem?",
+                "explain": "The task clearly defines the goal: finding the minimum number of cell phone towers. It's not about a different optimization problem.",
+                "isSuccess": false,
+                "isFailed": false,
+                "yes": {
+                    "action": "Is the problem about maximizing coverage with a fixed number of towers?",
+                    "explain": "The problem is not about maximizing coverage with a fixed number of towers. Instead, it's about minimizing the number of towers to achieve 100% coverage.",
+                    "isSuccess": true,
+                    "isFailed": false
+                },
+                "no": {
+                    "action": "Is the problem a complex network flow or graph theory problem?",
+                    "explain": "This problem can be modeled as a simple interval covering problem, not a complex network flow or graph theory problem.",
+                    "isSuccess": true,
+                    "isFailed": false
+                }
+            }
+        };
+
+        // 加载示例数据
+        function loadSampleTree() {
+            document.getElementById('treeInput').value = JSON.stringify(sampleTreeData, null, 2);
+            clearError();
+        }
+
+        // 解析并显示树
+        function parseTree() {
+            const input = document.getElementById('treeInput').value.trim();
+            
+            if (!input) {
+                showError('请先输入JSON数据');
+                return;
+            }
+
+            try {
+                const treeData = JSON.parse(input);
+                clearError();
+                renderTree(treeData);
+            } catch (error) {
+                showError('JSON格式错误: ' + error.message);
+            }
+        }
+
+        // 清空树
+        function clearTree() {
+            document.getElementById('treeInput').value = '';
+            document.getElementById('treeContainer').innerHTML = '<div class="empty-state">请输入JSON数据并点击"解析并显示树"按钮来查看可视化结果</div>';
+            clearError();
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        // 清除错误信息
+        function clearError() {
+            document.getElementById('errorMessage').innerHTML = '';
+        }
+
+        // 渲染树
+        function renderTree(treeData) {
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = '';
+
+            if (!treeData) {
+                container.innerHTML = '<div class="empty-state">无效的树数据</div>';
+                return;
+            }
+
+            // 创建包装器确保树能够完整显示
+            const wrapper = document.createElement('div');
+            wrapper.className = 'tree-wrapper';
+            
+            const treeElement = buildTreeElement(treeData);
+            wrapper.appendChild(treeElement);
+            container.appendChild(wrapper);
+        }
+
+        // 构建树元素
+        function buildTreeElement(node, pathType = null) {
+            const branch = document.createElement('div');
+            branch.className = 'tree-branch';
+
+            // 如果有路径类型，添加路径标签
+            if (pathType) {
+                const pathLabel = document.createElement('div');
+                pathLabel.className = `path-label ${pathType}`;
+                pathLabel.textContent = pathType === 'yes' ? 'YES' : 'NO';
+                branch.appendChild(pathLabel);
+            }
+
+            // 创建节点
+            const nodeElement = createNodeElement(node);
+            branch.appendChild(nodeElement);
+
+            // 如果有子节点，创建分支
+            if (node.yes || node.no) {
+                const connector = document.createElement('div');
+                connector.className = 'branch-connector';
+                branch.appendChild(connector);
+
+                const split = document.createElement('div');
+                split.className = 'branch-split';
+
+                if (node.yes) {
+                    const yesChild = document.createElement('div');
+                    yesChild.className = 'branch-child';
+                    yesChild.appendChild(buildTreeElement(node.yes, 'yes'));
+                    split.appendChild(yesChild);
+                }
+
+                if (node.no) {
+                    const noChild = document.createElement('div');
+                    noChild.className = 'branch-child';
+                    noChild.appendChild(buildTreeElement(node.no, 'no'));
+                    split.appendChild(noChild);
+                }
+
+                branch.appendChild(split);
+            }
+
+            return branch;
+        }
+
+        // 创建节点元素
+        function createNodeElement(node) {
+            const nodeDiv = document.createElement('div');
+            nodeDiv.className = 'tree-node';
+
+            // 确定节点状态样式
+            if (node.isSuccess) {
+                nodeDiv.classList.add('success');
+            } else if (node.isFailed) {
+                nodeDiv.classList.add('failed');
+            } else {
+                nodeDiv.classList.add('neutral');
+            }
+
+            // 条件文本
+            if (node.action) {
+                const actionDiv = document.createElement('div');
+                actionDiv.className = 'node-action';
+                actionDiv.textContent = node.action;
+                nodeDiv.appendChild(actionDiv);
+            }
+
+            // 解释文本
+            if (node.explain) {
+                const explainDiv = document.createElement('div');
+                explainDiv.className = 'node-explain';
+                explainDiv.textContent = node.explain;
+                nodeDiv.appendChild(explainDiv);
+            }
+
+            // 状态信息
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'node-status';
+
+            const successSpan = document.createElement('span');
+            successSpan.className = node.isSuccess ? 'status-success' : 'status-neutral';
+            successSpan.textContent = `✓ Success: ${node.isSuccess ? 'Yes' : 'No'}`;
+            statusDiv.appendChild(successSpan);
+
+            const failedSpan = document.createElement('span');
+            failedSpan.className = node.isFailed ? 'status-failed' : 'status-neutral';
+            failedSpan.textContent = `✗ Failed: ${node.isFailed ? 'Yes' : 'No'}`;
+            statusDiv.appendChild(failedSpan);
+
+            nodeDiv.appendChild(statusDiv);
+
+            return nodeDiv;
+        }
+
+        // 页面加载完成后自动加载示例数据
+        window.addEventListener('load', function() {
+            loadSampleTree();
+        });
+    </script>
+</body>
+</html>
