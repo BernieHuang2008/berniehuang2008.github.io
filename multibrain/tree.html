@@ -111,6 +111,43 @@
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #6c757d;
+            transition: all 0.2s;
+            opacity: 0.7;
+        }
+
+        .copy-button:hover {
+            background-color: #007acc;
+            color: white;
+            border-color: #007acc;
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .copy-button:active {
+            transform: scale(0.95);
+        }
+
+        .copy-button.copied {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
         .tree-node:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -479,6 +516,17 @@
                 nodeDiv.classList.add('neutral');
             }
 
+            // 添加复制按钮
+            const copyButton = document.createElement('div');
+            copyButton.className = 'copy-button';
+            copyButton.innerHTML = '📋';
+            copyButton.title = '复制节点JSON';
+            copyButton.onclick = function(e) {
+                e.stopPropagation();
+                copyNodeToClipboard(node, copyButton);
+            };
+            nodeDiv.appendChild(copyButton);
+
             // 条件文本
             if (node.action) {
                 const actionDiv = document.createElement('div');
@@ -512,6 +560,58 @@
             nodeDiv.appendChild(statusDiv);
 
             return nodeDiv;
+        }
+
+        // 复制节点到剪贴板
+        async function copyNodeToClipboard(node, buttonElement) {
+            try {
+                var node2 = node;
+                node2.yes = null;
+                node2.no = null;
+                const nodeJson = JSON.stringify(node2, null, 2);
+                
+                // 使用现代的Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(nodeJson);
+                } else {
+                    // 降级方案：使用传统的复制方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = nodeJson;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    textArea.remove();
+                }
+
+                // 提供视觉反馈
+                const originalContent = buttonElement.innerHTML;
+                const originalClass = buttonElement.className;
+                
+                buttonElement.innerHTML = '✓';
+                buttonElement.className = originalClass + ' copied';
+                
+                setTimeout(() => {
+                    buttonElement.innerHTML = originalContent;
+                    buttonElement.className = originalClass;
+                }, 1000);
+
+            } catch (error) {
+                console.error('复制失败:', error);
+                
+                // 错误反馈
+                const originalContent = buttonElement.innerHTML;
+                buttonElement.innerHTML = '✗';
+                buttonElement.style.backgroundColor = '#dc3545';
+                
+                setTimeout(() => {
+                    buttonElement.innerHTML = originalContent;
+                    buttonElement.style.backgroundColor = '';
+                }, 1000);
+            }
         }
 
         // 页面加载完成后自动加载示例数据
