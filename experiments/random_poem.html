@@ -4,53 +4,130 @@
             display: flex;
             flex-direction: column;
             flex-wrap: wrap;
-            max-height: 85vh; /* 85% of the viewport height */
-            overflow-x: auto; /* Allow horizontal scrolling if columns overflow */
+            max-height: 85vh;
+            /* 85% of the viewport height */
+            overflow-x: auto;
+            /* Allow horizontal scrolling if columns overflow */
             align-content: flex-start;
         }
+
         #content p {
-            margin-right: 2rem; /* Add space between columns */
+            margin-right: 2rem;
+            /* Add space between columns */
         }
     }
 </style>
+
 <body>
-<div id="ctl">
-    每句字数：<input type="number" id="length" value="7" min="1" max="20"/>
-    <br>
-    批量生成：<input type="number" id="num" value="40" min="1" max="1000"/>
-    <button onclick="batch_generate()">生成</button>
-</div>
-<div id="content"></div>
+    <div id="ctl">
+        每句字数：<input type="number" id="length" value="7" min="1" max="20" />
+        <br>
+        批量生成：<input type="number" id="num" value="40" min="1" max="1000" />
+        <br>
+        筛选器：
+        <div id="filters">
+            <input type="checkbox" data-filter="filter_yayun" checked> 押韵
+        </div>
+        <br>
+        <button onclick="batch_generate()">生成</button>
+    </div>
+    <div id="content"></div>
 </body>
 
+<script src="https://unpkg.com/pinyin-pro"></script>
 
 <script>
-
-var gbkDecoder = new TextDecoder("gbk");
-
-function random_cnstring(n) {
-    // randomly generate a string of n Chinese characters
-    let str = "";
-    for (let i = 0; i < n; i++) {
-        let row=Math.floor(Math.random() * 33)+16;  // gbk 区码
-        let cell = Math.floor(Math.random() * 94)+1; // gbk 位码
-
-        str += gbkDecoder.decode(new Uint8Array([row+160, cell+160]));
+    var filters = {
+        "filter_yayun": filter_yayun,
     }
-    return str;
-}
+    var gbkDecoder = new TextDecoder("gbk");
 
-function batch_generate() {
-    let num = document.getElementById("num").value;
-    let length = document.getElementById("length").value;
-    let content = document.getElementById("content");
-    content.innerHTML = "";
-    for (let i = 0; i < num; i++) {
-        let poem = random_cnstring(length); // generate a random string of specified length
-        let p = document.createElement("p");
-        p.textContent = poem;
-        content.appendChild(p);
+    function random_cnstring(n) {
+        // randomly generate a string of n Chinese characters
+        var str = "";
+        for (var i = 0; i < n; i++) {
+            var row = Math.floor(Math.random() * 33) + 16;  // gbk 区码
+            var cell = Math.floor(Math.random() * 94) + 1; // gbk 位码
+
+            str += gbkDecoder.decode(new Uint8Array([row + 160, cell + 160]));
+        }
+        return str;
     }
-}
+
+    function batch_generate() {
+        // settings
+        var num = document.getElementById("num").value;
+        var length = document.getElementById("length").value;
+        var filters_list = [];
+        document.querySelectorAll("#filters input[type=checkbox]").forEach(cb => {
+            if (cb.checked) {
+                var f = filters[cb.dataset.filter];
+                if (f) {
+                    filters_list.push(f);
+                }
+            }
+        });
+
+        // generate
+        var content = document.getElementById("content");
+        content.innerHTML = "";
+        for (var i = 0; i < num; i++) {
+            // 一次生成两句
+            var poems = [];
+            for (var j = 0; j < 2; j++) {
+                var poem = random_cnstring(length); // generate a random string of specified length
+                poems.push(poem);
+            }
+
+            // filters
+            var pass_filter = true;
+            filters_list.forEach(f => {
+                if (!f(poems)) {
+                    console.log(f.name, "false");
+                    i--; // 重新生成
+                    pass_filter = false;
+                }
+                else {
+                    console.log(f.name, "true");
+                }
+            })
+
+            if (!pass_filter) continue;
+
+            // 显示
+            var p = document.createElement("p");
+            p.textContent = poems.join("，") + "。";
+            content.appendChild(p);
+        }
+    }
+
+    // filter: 押韵
+    function filter_yayun(lines) {
+        function _get_pinyin(char) {
+            return pinyinPro.pinyin(char, { toneType: 'none', type: 'array' })[0];
+        }
+
+        function _slice_aeiou(pinyin) {
+            return pinyin.replace(/^[^aeiou]*/g, ''); // 去掉开头的辅音部分
+        }
+
+        function _is_rhyme(chars) {
+            let ryme = null;
+
+            for (let c of chars) {
+                let p = _get_pinyin(c);
+                let last = _slice_aeiou(p);
+                // console.log(p, last, ryme);
+                if (ryme === null) {
+                    ryme = last;
+                } else if (ryme !== last) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return _is_rhyme(lines.map(line => line.slice(-1)));
+    }
 
 </script>
