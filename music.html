@@ -29,11 +29,25 @@
                         <option value="2">聚类分析</option>
                     </select>
                 </div>
+                <div class="setting-item">
+                    <label for="bpm">节拍器速度 (BPM)：</label>
+                    <input type="number" id="bpm" value="60" min="30" max="240" onchange="SETTINGS.bpm = this.value">
+                </div>
                 <button onclick="refresh()" class="secondary-btn">重新生成节奏型</button>
             </details>
         </div>
         
         <button id="pressit">空格键 / 点这里</button>
+    </div>
+
+    <div id="metronome-container" onclick="toggleMetronome()">
+        <div class="metronome-body">
+            <div class="pendulum-pivot"></div>
+            <div class="pendulum" id="pendulum">
+                <div class="weight"></div>
+            </div>
+        </div>
+        <div class="metronome-base"></div>
     </div>
 
     <script>
@@ -49,12 +63,87 @@
         var SETTINGS = {
             duration: 2000, // ms
             barnum: 2,
+            bpm: 60
         }
 
         var target = [];
         var lst = [];
         var currState = 0;
         var currStateStartTime = 0;
+
+        // Metronome variables
+        var metronomeActive = false;
+        var audioCtx = null;
+        var nextNoteTime = 0.0;
+        var timerID;
+        var lookahead = 25.0; // ms
+        var scheduleAheadTime = 0.1; // s
+        var metronomeStartTime = 0;
+
+        function toggleMetronome() {
+            metronomeActive = !metronomeActive;
+            if (metronomeActive) {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                nextNoteTime = audioCtx.currentTime;
+                metronomeStartTime = performance.now();
+                scheduler();
+                requestAnimationFrame(drawMetronome);
+            } else {
+                clearTimeout(timerID);
+            }
+        }
+
+        function scheduler() {
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(audioCtx.currentTime);
+                nextNoteTime += 60.0 / SETTINGS.bpm;
+            }
+            timerID = setTimeout(scheduler, lookahead);
+        }
+
+        function scheduleNote(time) {
+            const osc = audioCtx.createOscillator();
+            const envelope = audioCtx.createGain();
+
+            osc.frequency.value = 1000;
+            envelope.gain.value = 1;
+            envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+            osc.connect(envelope);
+            envelope.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.05);
+        }
+
+        function drawMetronome() {
+            if (!metronomeActive) {
+                document.getElementById("pendulum").style.transform = "rotate(0deg)";
+                return;
+            }
+
+            let now = performance.now();
+            let elapsed = (now - metronomeStartTime) / 1000; // seconds
+            let beatDuration = 60 / SETTINGS.bpm;
+            
+            // Angle calculation:
+            // We want center crossing at t = 0, t = beatDuration, etc. to match the audio beat.
+            // sin(2 * pi * f * t) where f = BPM / 120 (since period is 2 beats)
+            // f = SETTINGS.bpm / 120
+            // angle = maxAngle * sin(2 * pi * (bpm/120) * elapsed)
+            
+            let maxAngle = 30;
+            let angle = maxAngle * Math.sin(2 * Math.PI * (SETTINGS.bpm / 120) * elapsed);
+            
+            document.getElementById("pendulum").style.transform = `rotate(${angle}deg)`;
+            
+            requestAnimationFrame(drawMetronome);
+        }
 
         var animationFrameId;
         var recordingStartTime = 0;
@@ -605,6 +694,88 @@
                 height: 120px;
                 font-size: 20px;
             }
+            
+            #metronome-container {
+                top: 10px;
+                right: 10px;
+                transform: scale(0.8);
+                transform-origin: top right;
+            }
+        }
+
+        /* Metronome Styles */
+        #metronome-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 120px;
+            cursor: pointer;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .metronome-body {
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+            border-right: 30px solid transparent;
+            border-bottom: 100px solid #8d6e63; /* Wood color */
+            position: relative;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3));
+        }
+
+        .metronome-base {
+            width: 70px;
+            height: 10px;
+            background-color: #5d4037;
+            border-radius: 2px;
+            margin-top: -5px; /* Overlap slightly */
+        }
+
+        .pendulum {
+            position: absolute;
+            bottom: -90px; /* Pivot point relative to body top (border-bottom trick makes content start at top) */
+            /* Actually with border trick, the content box is 0x0 at the top. 
+               The bottom is 100px down. 
+               Let's position relative to the bottom center. */
+            left: 50%;
+            width: 4px;
+            height: 90px;
+            background-color: silver;
+            transform-origin: bottom center;
+            transform: translateX(-50%) rotate(0deg);
+            /* We need to center the pendulum horizontally. 
+               Since width is 0, left: 0 is center. 
+               Wait, border-left is 30px. So center is at 0 relative to content? 
+               No, border box model is tricky with triangles. 
+               Let's use a simpler approach for positioning. */
+            margin-left: -2px; /* Half width */
+            top: 5px; /* Start near top */
+        }
+
+        .weight {
+            width: 12px;
+            height: 12px;
+            background-color: #ffd700; /* Gold */
+            position: absolute;
+            top: 20px; /* Adjustable height for tempo visually */
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .pendulum-pivot {
+            position: absolute;
+            bottom: -95px;
+            left: -5px;
+            width: 10px;
+            height: 10px;
+            background-color: #333;
+            border-radius: 50%;
         }
     </style>
 </body>
