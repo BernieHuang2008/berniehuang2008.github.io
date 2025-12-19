@@ -37,7 +37,7 @@
             </details>
         </div>
         
-        <button id="pressit">空格键 / 点这里</button>
+        <div id="pressit">空格键 / 点这里</div>
     </div>
 
     <div id="metronome-container" onclick="toggleMetronome()">
@@ -474,6 +474,14 @@
 
         document.getElementById("pressit").addEventListener("mousedown", onpressdown);
         document.getElementById("pressit").addEventListener("mouseup", onpressup);
+        document.getElementById("pressit").addEventListener("touchstart", (e) => {
+            e.preventDefault(); // Prevent default touch actions like scrolling
+            onpressdown(e);
+        }, { passive: false });
+        document.getElementById("pressit").addEventListener("touchend", (e) => {
+            e.preventDefault();
+            onpressup(e);
+        }, { passive: false });
 
     </script>
 
@@ -670,6 +678,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            border-radius: 10px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevent browser handling of gestures */
         }
 
         #pressit:hover {
