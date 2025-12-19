@@ -1,0 +1,610 @@
+<body>
+    <div class="container">
+        <h1>音乐节奏型练习</h1>
+
+
+        <div id="target" class="rhythm-display"></div>
+        
+        <div class="progress-container">
+            <div id="input-progress"></div>
+            <div id="playback-cursor">
+                <div class="cursor-top"></div>
+                <div class="cursor-bottom"></div>
+            </div>
+        </div>
+
+        <div id="recognition-result" class="rhythm-display"></div>
+
+        <div class="controls">
+            <details id="settings">
+                <summary>设置</summary>
+                <div class="setting-item">
+                    <label for="barnum">每小节拍子数：</label>
+                    <input type="number" id="barnum" value="2" min="1"> 小节数
+                </div>
+                <div class="setting-item">
+                    <label for="analyzer-select">分析算法：</label>
+                    <select id="analyzer-select">
+                        <option value="1">对数匹配</option>
+                        <option value="2">聚类分析</option>
+                    </select>
+                </div>
+                <button onclick="refresh()" class="secondary-btn">重新生成节奏型</button>
+            </details>
+        </div>
+        
+        <button id="pressit">空格键 / 点这里</button>
+    </div>
+
+    <script>
+        const PRESS_DOWN = 1;
+        const PRESS_UP = 0;
+        const pattern_pool = {
+            "<span class='m4'>X</span>": 1,
+            "<span class='m45'>X.</span>": 1.5,
+            "<span class='m8'>X</span>": 0.5,
+            "<span class='m16'>X</span>": 0.25,
+        };
+
+        var SETTINGS = {
+            duration: 2000, // ms
+            barnum: 2,
+        }
+
+        var target = [];
+        var lst = [];
+        var currState = 0;
+        var currStateStartTime = 0;
+
+        var animationFrameId;
+        var recordingStartTime = 0;
+
+        function createNewSegment(className) {
+            let inputDiv = document.getElementById("input-progress");
+            let seg = document.createElement("div");
+            seg.className = "segment " + className;
+            seg.style.width = "0%";
+            inputDiv.appendChild(seg);
+        }
+
+        function finalizeCurrentSegment(now) {
+            let inputDiv = document.getElementById("input-progress");
+            let seg = inputDiv.lastElementChild;
+            if (seg) {
+                let duration = now - currStateStartTime;
+                let pct = (duration / (SETTINGS.duration * SETTINGS.barnum)) * 100;
+                seg.style.width = pct + "%";
+            }
+        }
+
+        function startProgressBar() {
+            createNewSegment("segment-down");
+            updateProgressBar();
+        }
+
+        function updateProgressBar() {
+            let now = performance.now();
+            let elapsedTotal = now - recordingStartTime;
+            let totalDuration = SETTINGS.duration * SETTINGS.barnum;
+
+            if (elapsedTotal >= totalDuration) {
+                return;
+            }
+
+            // Update cursor
+            let cursorPct = (elapsedTotal / totalDuration) * 100;
+            let cursor = document.getElementById("playback-cursor");
+            if (cursor) cursor.style.left = cursorPct + "%";
+
+            let inputDiv = document.getElementById("input-progress");
+            let seg = inputDiv.lastElementChild;
+            if (seg) {
+                let segDuration = now - currStateStartTime;
+                let pct = (segDuration / totalDuration) * 100;
+                seg.style.width = pct + "%";
+            }
+
+            animationFrameId = requestAnimationFrame(updateProgressBar);
+        }
+
+        function generateTargetPattern(numBeats, numBar) {
+            // 每小节的拍子，小节数
+            let pattern = [];
+
+            for (let i = 0; i < numBar; i++) {
+                // 生成一小节
+                let beatCount = 0;
+                let barPattern = [];
+                while (beatCount < numBeats) {
+                    let keys = Object.keys(pattern_pool);
+                    let randKey = keys[Math.floor(Math.random() * keys.length)];
+                    let value = pattern_pool[randKey];
+                    if (beatCount + value <= numBeats) {
+                        barPattern.push(randKey);
+                        beatCount += value;
+                    }
+                }
+                pattern.push(barPattern);
+            }
+
+            return pattern;
+        }
+
+        function refresh() {
+            lst = [];
+            currState = PRESS_UP;
+            currStateStartTime = -1;
+            cancelAnimationFrame(animationFrameId);
+
+            // generate target pattern & render it.
+            SETTINGS.barnum = Number(document.getElementById("barnum").value) || 2;
+            target = generateTargetPattern(4, SETTINGS.barnum);
+            let targetDiv = document.getElementById("target");
+            targetDiv.innerHTML = "";
+            target.forEach((barPattern, barIndex) => {
+                let barDiv = document.createElement("span");
+                barDiv.innerHTML = barPattern.join("") + (barIndex < target.length - 1 ? " | " : "");
+                targetDiv.appendChild(barDiv);
+            });
+
+            // reset input progress & recognition result
+            document.getElementById("input-progress").innerHTML = "请开始输入节奏型";
+            document.getElementById("recognition-result").innerHTML = "";
+            let cursor = document.getElementById("playback-cursor");
+            if (cursor) cursor.style.left = "0%";
+        }
+
+        refresh();
+
+        function stopRecording() {
+            cancelAnimationFrame(animationFrameId);
+            // stop recording and process lst
+            if (currState === PRESS_DOWN) {
+                // if currently pressed down, record the duration until now
+                let now = performance.now();
+                let duration = now - currStateStartTime;
+                lst.push({ state: PRESS_DOWN, duration: duration });
+                finalizeCurrentSegment(now);
+            }
+
+            // render input progress
+            let resultDiv = document.getElementById("recognition-result");
+            resultDiv.innerHTML = "你输入的节奏型： ";
+            resultDiv.innerHTML = analize_rhythm(lst);
+        }
+
+        function analize_rhythm1(inputList) {
+            let downEvents = inputList.filter(item => item.state === PRESS_DOWN);
+            if (downEvents.length === 0) return "";
+
+            let minDuration = downEvents.reduce((min, item) => Math.min(min, item.duration), Infinity);
+
+            let minTargetBeat = Infinity;
+            if (target && target.length > 0) {
+                target.forEach(bar => {
+                    bar.forEach(key => {
+                        let val = pattern_pool[key];
+                        if (val < minTargetBeat) minTargetBeat = val;
+                    });
+                });
+            }
+            if (minTargetBeat === Infinity) minTargetBeat = 0.25;
+
+            let poolEntries = Object.entries(pattern_pool).map(([k, v]) => ({
+                html: k,
+                val: v,
+                logVal: Math.log(v)
+            }));
+
+            let res = "";
+            inputList.forEach(item => {
+                if (item.state === PRESS_DOWN) {
+                    let logEst = Math.log(item.duration) + Math.log(minTargetBeat) - Math.log(minDuration);
+                    
+                    let bestMatch = null;
+                    let minDiff = Infinity;
+                    
+                    for (let entry of poolEntries) {
+                        let diff = Math.abs(entry.logVal - logEst);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            bestMatch = entry;
+                        }
+                    }
+                    
+                    if (bestMatch) {
+                        res += bestMatch.html;
+                    }
+                }
+            });
+            return res;
+        }
+
+
+        function analize_rhythm2(inputList) {
+            let downEvents = inputList.filter(item => item.state === PRESS_DOWN);
+            if (downEvents.length === 0) return "";
+
+            // 1. Get unique target values
+            let targetValues = new Set();
+            if (target && target.length > 0) {
+                target.forEach(bar => {
+                    bar.forEach(key => {
+                        targetValues.add(pattern_pool[key]);
+                    });
+                });
+            }
+            if (targetValues.size === 0) targetValues.add(1);
+            
+            let sortedTargetValues = Array.from(targetValues).sort((a, b) => a - b);
+            let k = sortedTargetValues.length;
+
+            // 2. Cluster input durations into k clusters
+            let durations = downEvents.map(e => e.duration);
+            let clusters = kMeans(durations, k);
+
+            // 3. Sort clusters by their centroid
+            clusters.sort((a, b) => a.centroid - b.centroid);
+
+            // 4. Map clusters to target values
+            let res = "";
+            inputList.forEach(item => {
+                if (item.state === PRESS_DOWN) {
+                    // Find which cluster this duration belongs to
+                    let bestClusterIndex = 0;
+                    let minDist = Infinity;
+                    for(let i=0; i<clusters.length; i++) {
+                        let dist = Math.abs(item.duration - clusters[i].centroid);
+                        if(dist < minDist) {
+                            minDist = dist;
+                            bestClusterIndex = i;
+                        }
+                    }
+                    
+                    let targetValIndex = Math.min(bestClusterIndex, sortedTargetValues.length - 1);
+                    let targetVal = sortedTargetValues[targetValIndex];
+
+                    // Find HTML for targetVal
+                    let html = Object.keys(pattern_pool).find(key => pattern_pool[key] === targetVal);
+                    if (html) res += html;
+                }
+            });
+            return res;
+        }
+
+        function kMeans(data, k) {
+            if (data.length === 0) return [];
+            if (k > data.length) k = data.length;
+
+            // Initialize centroids: sort and pick evenly spaced
+            let sortedData = [...data].sort((a, b) => a - b);
+            let centroids = [];
+            for (let i = 0; i < k; i++) {
+                let idx = Math.floor(i * (sortedData.length - 1) / (k - 1 || 1));
+                centroids.push(sortedData[idx]);
+            }
+            
+            let iterations = 10;
+            for (let iter = 0; iter < iterations; iter++) {
+                // Assign
+                let clusters = Array.from({length: k}, () => []);
+                for (let i = 0; i < data.length; i++) {
+                    let val = data[i];
+                    let minDist = Infinity;
+                    let clusterIdx = 0;
+                    for (let c = 0; c < k; c++) {
+                        let dist = Math.abs(val - centroids[c]);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            clusterIdx = c;
+                        }
+                    }
+                    clusters[clusterIdx].push(val);
+                }
+
+                // Update centroids
+                for (let c = 0; c < k; c++) {
+                    if (clusters[c].length > 0) {
+                        let sum = clusters[c].reduce((a, b) => a + b, 0);
+                        centroids[c] = sum / clusters[c].length;
+                    }
+                }
+            }
+            
+            return centroids.map(c => ({ centroid: c }));
+        }
+
+        function analize_rhythm(inputList) {
+            let analyzerType = document.getElementById("analyzer-select").value;
+            if (analyzerType === "1") {
+                return analize_rhythm1(inputList);
+            } else {
+                return analize_rhythm2(inputList);
+            }
+        }
+
+        function onpressdown(event) {
+            if (currState === PRESS_DOWN) return; // already pressed down
+
+            let now = performance.now();
+            if (currState === PRESS_UP) {
+                // first time press down
+                if (currStateStartTime === -1) {
+                    setTimeout(stopRecording, (SETTINGS.duration * SETTINGS.barnum));
+                    document.getElementById("input-progress").innerHTML = "";
+                    let cursor = document.getElementById("playback-cursor");
+                    if (cursor) cursor.style.left = "0%";
+                    recordingStartTime = now;
+                    startProgressBar();
+                }
+                // second time: record the duration of the previous up state
+                else {
+                    let duration = now - currStateStartTime;
+                    lst.push({ state: PRESS_UP, duration: duration });
+                    finalizeCurrentSegment(now);
+                    createNewSegment("segment-down");
+                }
+                // switch to down state
+                currState = PRESS_DOWN;
+                currStateStartTime = now;
+            }
+        }
+
+        function onpressup(event) {
+            if (currState === PRESS_UP) return; // already released
+
+            let now = performance.now();
+            if (currState === PRESS_DOWN) {
+                // record the duration of the previous down state
+                let duration = now - currStateStartTime;
+                lst.push({ state: PRESS_DOWN, duration: duration });
+                finalizeCurrentSegment(now);
+                createNewSegment("segment-up");
+                // switch to up state
+                currState = PRESS_UP;
+                currStateStartTime = now;
+            }
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+                onpressdown(e);
+
+                e.preventDefault();
+                return false;
+            }
+        });
+        document.addEventListener("keyup", (e) => {
+            if (e.code === "Space") {
+                onpressup(e);
+
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        document.getElementById("pressit").addEventListener("mousedown", onpressdown);
+        document.getElementById("pressit").addEventListener("mouseup", onpressup);
+
+    </script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            /* max-width: 800px; */
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .rhythm-display {
+            min-height: 60px;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        span {
+            font-size: 32px;
+            margin: 0 8px;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .m4 {
+            /* font-weight: bold; */
+        }
+
+        .m8 {
+            text-decoration: none;
+            border-bottom: 2px solid black;
+        }
+
+        .m16 {
+            border-bottom: 4px double black;
+        }
+
+        .progress-container {
+            position: relative;
+            margin: 20px 0;
+            padding: 10px 0;
+        }
+
+        #input-progress {
+            width: 100%;
+            height: 30px;
+            background-color: #e0e0e0;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #playback-cursor {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 2px;
+            pointer-events: none;
+            z-index: 10;
+            transform: translateX(-50%);
+            translate: -10px 0;
+            transition: left 0.05s linear;
+        }
+
+        .cursor-top {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid red;
+        }
+
+        .cursor-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 8px solid red;
+        }
+
+        .segment {
+            height: 100%;
+            transition: width 0.1s linear;
+        }
+
+        .segment-down {
+            background-color: #4CAF50; /* Green */
+        }
+
+        .segment-up {
+            background-color: #e0e0e0; /* Gray */
+        }
+
+        .controls {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        details {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        .setting-item {
+            margin: 10px 0;
+        }
+
+        input[type="number"], select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        input[type="number"] {
+            width: 60px;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.2s, transform 0.1s;
+            font-size: 16px;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .secondary-btn {
+            background-color: #607d8b;
+            color: white;
+            padding: 8px 16px;
+            margin-top: 10px;
+        }
+
+        .secondary-btn:hover {
+            background-color: #546e7a;
+        }
+
+        #pressit {
+            width: 100%;
+            height: min(90vw, 50vh);
+            margin-top: 20px;
+            font-size: 10vw;
+            font-weight: bold;
+            background-color: #2196F3;
+            color: white;
+            box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pressit:hover {
+            background-color: #1e88e5;
+        }
+
+        #pressit:active {
+            background-color: #1976d2;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            span {
+                font-size: 24px;
+            }
+
+            #pressit {
+                height: 120px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</body>
