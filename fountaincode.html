@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FountainQR - 喷泉码纸质传输系统</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        label { display: block; font-size: 14px; margin-bottom: 5px; font-weight: bold; }
+        input, select, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { background: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2980b9; }
+        #qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+        .qr-item { text-align: center; font-size: 10px; border: 1px solid #eee; padding: 5px; }
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; }
+        .status-box { background: #2c3e50; color: #2ecc71; padding: 15px; border-radius: 6px; font-family: monospace; margin-top: 10px; min-height: 100px; white-space: pre-wrap; }
+        .progress-bar { height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        #progress-fill { height: 100%; background: #2ecc71; width: 0%; transition: width 0.3s; }
+        .hidden { display: none; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="text-align:center">FountainQR 系统</h1>
+
+    <div class="card no-print">
+        <h2>1. 生成喷泉二维码 (发送端)</h2>
+        <div class="controls">
+            <div>
+                <label>选择文件</label>
+                <input type="file" id="fileInput">
+            </div>
+            <div>
+                <label>块大小 (Bytes)</label>
+                <input type="number" id="blockSize" value="128">
+            </div>
+            <div>
+                <label>二维码尺寸 (px)</label>
+                <input type="number" id="qrSize" value="180">
+            </div>
+            <div>
+                <label>纠错等级</label>
+                <select id="qrError">
+                    <option value="L">Level L (7%) - 推荐</option>
+                    <option value="M">Level M (15%)</option>
+                    <option value="Q">Level Q (25%)</option>
+                    <option value="H">Level H (30%)</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="generateFountainQRs()">生成并排版可打印文件</button>
+        <div id="qr-grid"></div>
+    </div>
+
+    <div class="card no-print">
+        <h2>2. 摄像头扫描还原 (接收端)</h2>
+        <div id="reader"></div>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <div id="status" class="status-box">准备就绪，等待扫描...</div>
+        <button id="downloadBtn" class="hidden" onclick="downloadRecoveredFile()" style="background:#27ae60; margin-top:10px;">下载还原的文件</button>
+    </div>
+</div>
+
+<script>
+/** 核心代数工具：GF(2) 上的异或运算 **/
+const xorArrays = (a, b) => {
+    const res = new Uint8Array(a.length);
+    for (let i = 0; i < a.length; i++) res[i] = a[i] ^ b[i];
+    return res;
+};
+
+// --- 全局变量 ---
+let fileId = Math.floor(Math.random() * 10000);
+let recoveredFile = null;
+let decoder = {
+    totalBlocks: 0,
+    blockSize: 0,
+    fileName: "",
+    fileType: "",
+    basis: [], // 高斯消元的基向量 [ {indices: Set, data: Uint8Array} ]
+    rank: 0,
+    isDone: false
+};
+
+// --- 编码器逻辑 ---
+async function generateFountainQRs() {
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) return alert("请先选择文件");
+    
+    const file = fileInput.files[0];
+    const blockSize = parseInt(document.getElementById('blockSize').value);
+    const buffer = await file.arrayBuffer();
+    const data = new Uint8Array(buffer);
+    const totalBlocks = Math.ceil(data.length / blockSize);
+    
+    const qrGrid = document.getElementById('qr-grid');
+    qrGrid.innerHTML = "正在生成，请稍候...";
+
+    // 预切割块
+    const chunks = [];
+    for (let i = 0; i < totalBlocks; i++) {
+        const chunk = new Uint8Array(blockSize);
+        chunk.set(data.slice(i * blockSize, (i + 1) * blockSize));
+        chunks.push(chunk);
+    }
+
+    qrGrid.innerHTML = "";
+    // 生成 N*1.5 个二维码（喷泉码特性：冗余约 10-50% 即可极大概率还原）
+    const count = Math.ceil(totalBlocks * 1.5);
+    for (let n = 0; n < count; n++) {
+        // 随机选择度 Degree (1 到 totalBlocks 之间)
+        // 简单模拟：每个块有 30% 概率被选中
+        let selectedIndices = [];
+        let xorData = new Uint8Array(blockSize);
+        
+        while(selectedIndices.length === 0) {
+            for(let i=0; i<totalBlocks; i++) {
+                if(Math.random() < 0.3) {
+                    selectedIndices.push(i);
+                    xorData = xorArrays(xorData, chunks[i]);
+                }
+            }
+        }
+
+        // 构造 Payload: ID|Total|Indices|OriginalName|Data(Base64)
+        // 注意：生产环境建议压缩索引以节省空间
+        const payload = JSON.stringify({
+            id: fileId,
+            t: totalBlocks,
+            sz: data.length,
+            name: file.name,
+            type: file.type,
+            idx: selectedIndices,
+            d: btoa(String.fromCharCode(...xorData))
+        });
+
+        const div = document.createElement('div');
+        div.className = "qr-item";
+        const qrId = `qr-${n}`;
+        div.innerHTML = `<div id="${qrId}"></div><p>Packet #${n+1}</p>`;
+        qrGrid.appendChild(div);
+
+        new QRCode(document.getElementById(qrId), {
+            text: payload,
+            width: parseInt(document.getElementById('qrSize').value),
+            height: parseInt(document.getElementById('qrSize').value),
+            correctLevel: QRCode.CorrectLevel[document.getElementById('qrError').value]
+        });
+    }
+}
+
+// --- 解码器核心：在线高斯消元 ---
+function processPacket(packet) {
+    if (decoder.isDone) return;
+
+    // 初始化解码器元数据
+    if (decoder.totalBlocks === 0) {
+        decoder.totalBlocks = packet.t;
+        decoder.blockSize = JSON.parse(atob(packet.d)).length; // 演示用，实际应直接从长度获取
+        decoder.fileName = packet.name;
+        decoder.fileType = packet.type;
+        decoder.fileSize = packet.sz;
+        // 初始化基向量组
+        decoder.basis = new Array(decoder.totalBlocks).fill(null);
+    }
+
+    let currentIndices = new Set(packet.idx);
+    let currentData = new Uint8Array(atob(packet.d).split("").map(c => c.charCodeAt(0)));
+
+    // 增量消元
+    for (let i = 0; i < decoder.totalBlocks; i++) {
+        if (currentIndices.has(i)) {
+            if (!decoder.basis[i]) {
+                // 找到线性无关组，存入基
+                decoder.basis[i] = { indices: currentIndices, data: currentData };
+                decoder.rank++;
+                updateStatus();
+                break;
+            } else {
+                // 消除当前位的 1
+                const b = decoder.basis[i];
+                // XOR 索引集合
+                let nextIndices = new Set(currentIndices);
+                for (let idx of b.indices) {
+                    if (nextIndices.has(idx)) nextIndices.delete(idx);
+                    else nextIndices.add(idx);
+                }
+                currentIndices = nextIndices;
+                currentData = xorArrays(currentData, b.data);
+                
+                if (currentIndices.size === 0) break; // 线性相关，无用包
+            }
+        }
+    }
+
+    if (decoder.rank === decoder.totalBlocks && !decoder.isDone) {
+        finalizeDecoding();
+    }
+}
+
+function updateStatus() {
+    const progress = (decoder.rank / decoder.totalBlocks) * 100;
+    document.getElementById('progress-fill').style.width = `${progress}%`;
+    document.getElementById('status').innerText = 
+        `文件: ${decoder.fileName || '未知'}\n` +
+        `进度: ${decoder.rank} / ${decoder.totalBlocks} Chunks (秩)\n` +
+        `状态: 正在实时消元...`;
+}
+
+function finalizeDecoding() {
+    decoder.isDone = true;
+    // 回代过程：将基矩阵化为单位矩阵
+    for (let i = decoder.totalBlocks - 1; i >= 0; i--) {
+        for (let j = i - 1; j >= 0; j--) {
+            if (decoder.basis[j].indices.has(i)) {
+                decoder.basis[j].data = xorArrays(decoder.basis[j].data, decoder.basis[i].data);
+                decoder.basis[j].indices.delete(i);
+            }
+        }
+    }
+
+    // 合并数据
+    const finalData = new Uint8Array(decoder.fileSize);
+    const blockSize = decoder.basis[0].data.length;
+    for (let i = 0; i < decoder.totalBlocks; i++) {
+        const chunk = decoder.basis[i].data;
+        finalData.set(chunk.slice(0, Math.min(blockSize, decoder.fileSize - i*blockSize)), i * blockSize);
+    }
+
+    recoveredFile = new Blob([finalData], { type: decoder.fileType });
+    document.getElementById('status').innerText = "✅ 解码成功！所有线性方程已解出。";
+    document.getElementById('downloadBtn').classList.remove('hidden');
+    html5QrCode.stop();
+}
+
+function downloadRecoveredFile() {
+    const url = URL.createObjectURL(recoveredFile);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "recovered_" + decoder.fileName;
+    a.click();
+}
+
+// --- 摄像头扫描设置 ---
+const html5QrCode = new Html5Qrcode("reader");
+const qrConfig = { fps: 20, qrbox: { width: 250, height: 250 } };
+
+html5QrCode.start({ facingMode: "environment" }, qrConfig, (decodedText) => {
+    try {
+        const packet = JSON.parse(decodedText);
+        if (packet.id !== undefined && packet.idx) {
+            processPacket(packet);
+        }
+    } catch (e) {
+        // 忽略非本系统的二维码
+    }
+});
+</script>
+
+</body>
+</html>
