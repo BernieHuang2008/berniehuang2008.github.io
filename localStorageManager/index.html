@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>LocalStorage 管理器</title>
+	<style>
+		:root {
+			--bg: #0f1520;
+			--panel: #121826;
+			--border: #243b53;
+			--text: #e6edf3;
+			--muted: #9fb3c8;
+			--accent: #3b82f6;
+			--danger: #ef4444;
+			--success: #10b981;
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+			background: var(--bg); color: var(--text);
+		}
+		header {
+			padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
+			display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+		}
+		header h1 { font-size: 16px; margin: 0 8px 0 0; }
+		.container { display: grid; grid-template-columns: 320px 1fr; gap: 12px; padding: 12px; }
+		.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+		.panel header { border-bottom: 1px solid var(--border); padding: 10px 12px; background: transparent; }
+		.panel header h2 { margin: 0; font-size: 14px; color: var(--muted); }
+		.list { max-height: calc(100vh - 160px); overflow: auto; }
+		.list-item { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+		.list-item:first-child { border-top: none; }
+		.list-item button { opacity: 0.6; }
+		.list-item:hover { background: #1a2234; }
+		.key { font-weight: 600; }
+		.muted { color: var(--muted); font-size: 12px; }
+		.toolbar { display: flex; gap: 8px; align-items: center; }
+		input, select, button, textarea { font: inherit; }
+		input[type="text"], textarea {
+			background: #0b1220; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+		}
+		textarea { width: 100%; min-height: 220px; resize: vertical; }
+		button {
+			background: #162036; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; cursor: pointer;
+		}
+		button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+		button.danger { background: #3a0f15; border-color: #5a1b23; color: #ffb4b4; }
+		button.success { background: #103b2b; border-color: #1a5c43; color: #b6f2d8; }
+		button:disabled { opacity: 0.6; cursor: not-allowed; }
+		.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+		.row { display: flex; gap: 8px; align-items: center; }
+		.spacer { flex: 1; }
+		.count { margin-left: 8px; font-size: 12px; color: var(--muted); }
+		.footer { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>LocalStorage 管理器</h1>
+		<div class="toolbar">
+			<input id="search" type="text" placeholder="搜索键名或值…" />
+			<button id="refresh">刷新</button>
+			<button id="clearAll" class="danger">清空所有</button>
+			<span class="count" id="count"></span>
+		</div>
+		<div class="spacer"></div>
+		<div class="toolbar">
+			<button id="exportBtn">导出 JSON</button>
+			<button id="importBtn">导入 JSON</button>
+		</div>
+	</header>
+
+	<div class="container">
+		<section class="panel" id="keysPanel">
+			<header><h2>键列表</h2></header>
+			<div class="footer">
+				<input id="newKey" type="text" placeholder="新建键名" />
+				<button id="addEmpty" class="success">新增空值</button>
+				<button id="addJSON" class="success">新增 JSON 值</button>
+			</div>
+			<div class="list" id="keysList"></div>
+		</section>
+
+		<section class="panel" id="editorPanel">
+			<header><h2>详情编辑</h2></header>
+			<div style="padding: 12px; display: grid; gap: 8px;">
+				<div class="row">
+					<label class="muted">键名</label>
+					<input id="editKey" type="text" style="flex:1" placeholder="选择或输入键名" />
+					<button id="renameKey">重命名</button>
+				</div>
+				<div class="row">
+					<label class="muted">值模式</label>
+					<select id="valueMode">
+						<option value="raw">原始文本</option>
+						<option value="json">JSON（格式化）</option>
+					</select>
+					<div class="spacer"></div>
+					<button id="prettyPrint">美化 JSON</button>
+				</div>
+				<textarea id="editValue" placeholder="值…"></textarea>
+				<div class="row">
+					<button id="save" class="primary">保存</button>
+					<button id="delete" class="danger">删除</button>
+					<div class="spacer"></div>
+					<span class="muted" id="status"></span>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<input id="importFile" type="file" accept="application/json" style="display:none" />
+
+	<script>
+		const els = {
+			search: document.getElementById('search'),
+			refresh: document.getElementById('refresh'),
+			clearAll: document.getElementById('clearAll'),
+			count: document.getElementById('count'),
+			keysList: document.getElementById('keysList'),
+			newKey: document.getElementById('newKey'),
+			addEmpty: document.getElementById('addEmpty'),
+			addJSON: document.getElementById('addJSON'),
+			editKey: document.getElementById('editKey'),
+			renameKey: document.getElementById('renameKey'),
+			valueMode: document.getElementById('valueMode'),
+			prettyPrint: document.getElementById('prettyPrint'),
+			editValue: document.getElementById('editValue'),
+			save: document.getElementById('save'),
+			del: document.getElementById('delete'),
+			status: document.getElementById('status'),
+			exportBtn: document.getElementById('exportBtn'),
+			importBtn: document.getElementById('importBtn'),
+			importFile: document.getElementById('importFile'),
+		};
+
+		function getAll() {
+			const out = [];
+			for (let i = 0; i < localStorage.length; i++) {
+				const key = localStorage.key(i);
+				const value = localStorage.getItem(key);
+				out.push({ key, value });
+			}
+			out.sort((a, b) => a.key.localeCompare(b.key));
+			return out;
+		}
+
+		function renderList(filter = '') {
+			const items = getAll();
+			const q = filter.trim().toLowerCase();
+			const filtered = q ? items.filter(({key, value}) =>
+				key.toLowerCase().includes(q) || (value ?? '').toLowerCase().includes(q)
+			) : items;
+			els.count.textContent = `共 ${items.length} 项，筛选 ${filtered.length} 项`;
+			els.keysList.innerHTML = '';
+			filtered.forEach(({key, value}) => {
+				const div = document.createElement('div');
+				div.className = 'list-item';
+				const btn = document.createElement('button');
+				btn.textContent = '打开';
+				btn.addEventListener('click', () => loadItem(key));
+				const info = document.createElement('div');
+				info.style.flex = '1';
+				info.style.marginRight = '8px';
+				const k = document.createElement('div'); k.className = 'key'; k.textContent = key;
+				const v = document.createElement('div'); v.className = 'muted';
+				v.textContent = value?.length ? `${value.slice(0, 80)}${value.length>80?'…':''}` : '(空)';
+				info.appendChild(k); info.appendChild(v);
+				div.appendChild(info); div.appendChild(btn);
+				els.keysList.appendChild(div);
+			});
+		}
+
+		function setStatus(msg, ok = true) {
+			els.status.textContent = msg;
+			els.status.style.color = ok ? 'var(--muted)' : 'var(--danger)';
+		}
+
+		function loadItem(key) {
+			els.editKey.value = key;
+			const value = localStorage.getItem(key);
+			const mode = els.valueMode.value;
+			if (mode === 'json') {
+				try {
+					els.editValue.value = JSON.stringify(JSON.parse(value ?? 'null'), null, 2);
+				} catch {
+					els.editValue.value = value ?? '';
+				}
+			} else {
+				els.editValue.value = value ?? '';
+			}
+			setStatus('已加载');
+		}
+
+		function saveItem() {
+			const key = els.editKey.value.trim();
+			if (!key) return setStatus('键名不能为空', false);
+			let value = els.editValue.value;
+			if (els.valueMode.value === 'json') {
+				try {
+					const parsed = JSON.parse(value || 'null');
+					value = JSON.stringify(parsed);
+				} catch (e) {
+					return setStatus('JSON 解析失败：' + e.message, false);
+				}
+			}
+			try {
+				localStorage.setItem(key, value);
+				setStatus('已保存');
+				renderList(els.search.value);
+			} catch (e) {
+				setStatus('保存失败：' + e.message, false);
+			}
+		}
+
+		function deleteItem() {
+			const key = els.editKey.value.trim();
+			if (!key) return setStatus('未指定键名', false);
+			if (!localStorage.getItem(key) && !localStorage.hasOwnProperty(key)) {
+				return setStatus('该键不存在', false);
+			}
+			const ok = confirm(`确认删除键：${key}？此操作不可撤回`);
+			if (!ok) return;
+			localStorage.removeItem(key);
+			els.editValue.value = '';
+			setStatus('已删除');
+			renderList(els.search.value);
+		}
+
+		function renameKey() {
+			const from = els.editKey.value.trim();
+			if (!from) return setStatus('原键名为空', false);
+			const to = prompt('输入新的键名', from);
+			if (!to) return setStatus('取消重命名');
+			if (to === from) return setStatus('键名未变化');
+			if (localStorage.getItem(to) !== null) {
+				const overwrite = confirm('目标键已存在，是否覆盖？');
+				if (!overwrite) return setStatus('已取消');
+			}
+			const val = localStorage.getItem(from);
+			localStorage.setItem(to, val);
+			localStorage.removeItem(from);
+			els.editKey.value = to;
+			setStatus('已重命名');
+			renderList(els.search.value);
+		}
+
+		function addEmpty(mode = 'raw') {
+			const key = els.newKey.value.trim();
+			if (!key) return setStatus('请先输入新键名', false);
+			if (localStorage.getItem(key) !== null) {
+				return setStatus('键已存在：' + key, false);
+			}
+			const value = mode === 'json' ? '{}' : '';
+			localStorage.setItem(key, value);
+			loadItem(key);
+			renderList(els.search.value);
+			setStatus('已创建新键');
+		}
+
+		function prettyPrintJSON() {
+			try {
+				const obj = JSON.parse(els.editValue.value || 'null');
+				els.editValue.value = JSON.stringify(obj, null, 2);
+				els.valueMode.value = 'json';
+				setStatus('已美化 JSON');
+			} catch (e) {
+				setStatus('不是有效的 JSON：' + e.message, false);
+			}
+		}
+
+		function exportJSON() {
+			const all = getAll().reduce((acc, {key, value}) => {
+				acc[key] = value;
+				return acc;
+			}, {});
+			const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url; a.download = 'localStorage-export.json';
+			a.click();
+			URL.revokeObjectURL(url);
+			setStatus('已导出 JSON');
+		}
+
+		function importJSONFile(files) {
+			const file = files && files[0];
+			if (!file) return;
+			const reader = new FileReader();
+			reader.onload = () => {
+				try {
+					const data = JSON.parse(reader.result);
+					const overwrite = confirm('将覆盖同名键，是否继续？');
+					if (!overwrite) return setStatus('已取消导入');
+					Object.entries(data).forEach(([k, v]) => {
+						localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+					});
+					renderList(els.search.value);
+					setStatus('已导入 JSON');
+				} catch (e) {
+					setStatus('导入失败：' + e.message, false);
+				}
+			};
+			reader.readAsText(file, 'utf-8');
+		}
+
+		// Event wiring
+		els.search.addEventListener('input', () => renderList(els.search.value));
+		els.refresh.addEventListener('click', () => renderList(els.search.value));
+		els.clearAll.addEventListener('click', () => {
+			const ok = confirm('确认清空所有 localStorage 项？此操作不可撤回');
+			if (!ok) return;
+			localStorage.clear();
+			els.editKey.value = '';
+			els.editValue.value = '';
+			renderList();
+			setStatus('已清空所有');
+		});
+		els.addEmpty.addEventListener('click', () => addEmpty('raw'));
+		els.addJSON.addEventListener('click', () => addEmpty('json'));
+		els.renameKey.addEventListener('click', renameKey);
+		els.valueMode.addEventListener('change', () => {
+			const key = els.editKey.value.trim();
+			if (key) loadItem(key);
+		});
+		els.prettyPrint.addEventListener('click', prettyPrintJSON);
+		els.save.addEventListener('click', saveItem);
+		els.del.addEventListener('click', deleteItem);
+		els.exportBtn.addEventListener('click', exportJSON);
+		els.importBtn.addEventListener('click', () => els.importFile.click());
+		els.importFile.addEventListener('change', (e) => importJSONFile(e.target.files));
+
+		// Keyboard shortcuts
+		document.addEventListener('keydown', (e) => {
+			if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveItem(); }
+			if (e.ctrlKey && e.key.toLowerCase() === 'f') { e.preventDefault(); els.search.focus(); }
+			if (e.key === 'Delete' && document.activeElement === els.editValue) { e.preventDefault(); deleteItem(); }
+		});
+
+		// Initial render
+		renderList();
+	</script>
+</body>
+</html>
