@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 座位表生成器</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#fafafc;
+    --line:#e6e6ec;
+    --text:#202020;
+    --muted:#6b6b76;
+    --primary:#005abe;
+    --primary-bg:#e1eeff;
+    --primary-bd:#b8d6ff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:"Segoe UI","Segoe UI Variable Text","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+    font-size:14px;
+  }
+
+  /* ---------- 顶部导航 ---------- */
+  .nav{
+    flex:0 0 auto;display:flex;align-items:center;gap:6px;
+    padding:14px 24px;border-bottom:1px solid #e8e8ec;background:var(--bg);
+    z-index:10;
+  }
+  .nav-btn{
+    padding:8px 22px;border-radius:10px;border:1px solid #dcdce4;background:var(--bg);
+    cursor:pointer;font-size:14px;font-weight:600;color:#3c3c46;
+    font-family:inherit;transition:background .12s,border-color .12s;
+  }
+  .nav-btn:hover{background:#f0f0f5;}
+  .nav-btn.active{background:var(--primary-bg);color:var(--primary);border-color:var(--primary-bd);}
+  .nav-title{margin-left:auto;font-size:20px;font-weight:700;letter-spacing:.5px;color:#18181c;}
+
+  main{flex:1 1 auto;position:relative;overflow:hidden;}
+  .page{position:absolute;inset:0;display:none;}
+  .page.active{display:flex;flex-direction:column;}
+
+  /* ---------- 主页面 ---------- */
+  .toolbar{padding:20px 24px 0;display:flex;gap:12px;flex-wrap:wrap;}
+  .status{padding:16px 24px 0;font-weight:600;color:#2a2a32;min-height:22px;}
+  .preview-wrap{flex:1 1 auto;min-height:0;position:relative;margin:8px 0 0;}
+  #preview{display:block;}
+
+  /* ---------- 按钮 ---------- */
+  button{
+    font-family:inherit;font-size:14px;cursor:pointer;
+    padding:9px 20px;border-radius:9px;border:1px solid #dcdce4;
+    background:#fff;color:#2a2a32;transition:background .12s,box-shadow .12s;
+    white-space:nowrap;
+  }
+  button:hover{background:#f5f5fa;}
+  button:active{transform:translateY(1px);}
+  button.primary{background:var(--primary-bg);border-color:var(--primary-bd);color:var(--primary);font-weight:600;}
+  button.primary:hover{background:#d5e7ff;}
+  button:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+  button.tool{padding:7px 14px;font-size:13px;border-radius:8px;}
+  button.tool.on{background:var(--primary-bg);border-color:var(--primary-bd);color:var(--primary);font-weight:600;}
+
+  /* ---------- 设置页 ---------- */
+  #page-settings.active{display:block;overflow-y:auto;}
+  #page-settings{padding:0;}
+  .settings-inner{max-width:940px;padding:24px 24px 60px;}
+  .actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;}
+  .field{margin-bottom:18px;display:flex;flex-direction:column;gap:6px;}
+  .field > label{font-weight:600;color:#2a2a32;}
+  .field input[type=text],.field input[type=password],.field input[type=number],.field textarea{
+    font-family:inherit;font-size:14px;padding:8px 11px;border-radius:8px;
+    border:1px solid #d6d6de;background:#fff;color:#141414;outline:none;
+    transition:border-color .12s,box-shadow .12s;
+  }
+  .field input:focus,.field textarea:focus{border-color:#7db4f0;box-shadow:0 0 0 3px rgba(0,90,190,.12);}
+  .field textarea{resize:vertical;line-height:1.55;}
+  .field input[type=file]{font-family:inherit;font-size:13px;}
+  .field-group{display:flex;gap:18px;flex-wrap:wrap;}
+  .field-group .field{flex:0 0 160px;margin-bottom:18px;}
+  .hint{color:var(--muted);font-size:13px;}
+  .columns-list{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:8px 16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;
+    min-height:44px;align-items:center;
+  }
+  .columns-list .chk{display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 0;}
+  .columns-list .chk input{cursor:pointer;width:15px;height:15px;}
+  .columns-list .chk span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---------- 模态框 ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(15,15,25,.38);
+    display:none;align-items:center;justify-content:center;z-index:100;
+    backdrop-filter:blur(2px);
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    background:#fff;border-radius:14px;
+    width:min(1240px,94vw);height:min(880px,92vh);
+    display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 24px 64px rgba(0,0,0,.28);
+  }
+  .modal-head{
+    padding:14px 20px;border-bottom:1px solid #eee;
+    display:flex;align-items:center;font-weight:600;font-size:15px;flex:0 0 auto;
+  }
+  .modal-head .close-btn{
+    margin-left:auto;padding:4px 12px;border-radius:8px;font-size:16px;line-height:1;
+  }
+  .modal-toolbar{
+    padding:12px 20px;border-bottom:1px solid #eee;flex:0 0 auto;
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f6f6f8;
+  }
+  .modal-toolbar .sep{width:1px;height:22px;background:#dcdce4;margin:0 6px;}
+  .modal-toolbar .lbl{font-weight:600;margin-right:4px;color:#3a3a44;}
+  .modal-body{flex:1 1 auto;overflow:auto;padding:16px;background:#fafafc;}
+  #layout-canvas-wrap{width:100%;text-align:center;}
+  #layout-canvas{display:inline-block;cursor:pointer;border-radius:8px;}
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:38px;transform:translateX(-50%) translateY(20px);
+    background:rgba(28,28,36,.94);color:#fff;padding:11px 22px;border-radius:10px;
+    font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:999;
+    max-width:80vw;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <button class="nav-btn active" data-page="main">主页面</button>
+  <button class="nav-btn" data-page="settings">设置</button>
+  <div class="nav-title">AI 座位表生成器</div>
+</div>
+
+<main>
+  <!-- ========== 主页面 ========== -->
+  <section class="page active" id="page-main">
+    <div class="toolbar">
+      <button id="btn-generate" class="primary">✨&nbsp; 生成座位表</button>
+      <button id="btn-export">📄&nbsp; 导出 Excel</button>
+    </div>
+    <div class="status" id="status">尚未生成 —— 点击「生成座位表」开始</div>
+    <div class="preview-wrap"><canvas id="preview"></canvas></div>
+  </section>
+
+  <!-- ========== 设置页 ========== -->
+  <section class="page" id="page-settings">
+    <div class="settings-inner">
+
+      <div class="actions-row">
+        <button id="btn-save-settings" class="primary">💾&nbsp; 保存设置</button>
+        <button id="btn-reload-excel">📥&nbsp; 重新加载 Excel</button>
+        <button id="btn-export-config">⬇&nbsp; 导出配置 JSON</button>
+        <button id="btn-import-config">⬆&nbsp; 导入配置 JSON</button>
+        <input type="file" id="config-file-input" accept=".json,application/json" hidden>
+      </div>
+
+      <div class="field">
+        <label>Excel 文件</label>
+        <input type="file" id="excel-file-input" accept=".xlsx,.xlsm,.xls">
+        <span class="hint" id="excel-file-name">未选择文件</span>
+      </div>
+
+      <div class="field">
+        <label>工作表名</label>
+        <input type="text" id="inp-sheet" placeholder="留空 = 第一个工作表">
+      </div>
+
+      <div class="field-group">
+        <div class="field"><label>指标名行（0 起）</label><input type="number" id="inp-header-row" min="0"></div>
+        <div class="field"><label>解释行（-1 无）</label><input type="number" id="inp-desc-row" min="-1"></div>
+        <div class="field"><label>数据起始行</label><input type="number" id="inp-data-start-row" min="0"></div>
+      </div>
+
+      <div class="field">
+        <label>API Endpoint</label>
+        <input type="text" id="inp-endpoint" placeholder="https://api.openai.com/v1/chat/completions">
+      </div>
+
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="inp-key" placeholder="sk-...">
+      </div>
+
+      <div class="field">
+        <label>模型名称</label>
+        <input type="text" id="inp-model" placeholder="gpt-4o-mini">
+      </div>
+
+      <div class="field">
+        <label>使用指标列</label>
+        <div class="columns-list" id="columns-list"></div>
+        <span class="hint">勾选的列会作为指标写入提示词；「【随机数】」是虚拟指标，不来自 Excel，每次请求前随机分配 1..学生总数。</span>
+      </div>
+
+      <div class="field">
+        <label>自定义规则</label>
+        <textarea id="inp-prompt" rows="8"
+          placeholder="每行一条规则：&#10;- 强制规则（永远生效）&#10;* 可选规则（50% 概率生效）&#10;不带前缀 = 强制规则"></textarea>
+        <span class="hint">以 <b>-</b> 开头为强制规则，以 <b>*</b> 开头为 50% 概率生效的可选规则。</span>
+      </div>
+
+      <div class="field">
+        <label>座位布局</label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button id="btn-open-layout">🗺&nbsp; 编辑座位布局…</button>
+          <span class="hint" id="layout-summary"></span>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:26px;line-height:1.7;">
+        提示：设置会保存在浏览器 localStorage 中；也可以导出 <code>settings.json</code> 备份或迁移。
+        调用 AI 接口时浏览器会直接向 Endpoint 发起请求，若遇到跨域（CORS）限制，请改用允许跨域的代理地址。
+      </p>
+
+    </div>
+  </section>
+</main>
+
+<!-- ========== 座位布局编辑器 ========== -->
+<div class="modal-backdrop" id="layout-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span>座位布局编辑器 —— 选择工具后单击格子即可涂色</span>
+      <button class="close-btn" id="layout-close">✕</button>
+    </div>
+    <div class="modal-toolbar">
+      <button class="tool" id="le-row-plus">行 ＋</button>
+      <button class="tool" id="le-row-minus">行 －</button>
+      <button class="tool" id="le-col-plus">列 ＋</button>
+      <button class="tool" id="le-col-minus">列 －</button>
+      <div class="sep"></div>
+      <button class="tool" id="le-all-seat">全部座位</button>
+      <button class="tool" id="le-all-clear">全部清空</button>
+      <div class="sep"></div>
+      <span class="lbl">绘制工具：</span>
+      <button class="tool" data-tool="1">座位</button>
+      <button class="tool" data-tool="2">走廊</button>
+      <button class="tool" data-tool="3">讲台</button>
+      <button class="tool" data-tool="4">门</button>
+      <button class="tool" data-tool="0">空位</button>
+    </div>
+    <div class="modal-body">
+      <div id="layout-canvas-wrap"><canvas id="layout-canvas"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+ *  常量（与原 C++ 完全一致）
+ * ===================================================================== */
+const RANDOM_METRIC_TITLE = '【随机数】';
+const RANDOM_METRIC_DESC =
+  '每次发送请求前由系统为每名学生随机分配的唯一整数，范围为 1 到学生总数；每次请求都会重新生成。';
+
+const SYSTEM_PROMPT =
+`你是一位专业的班主任助理，负责编排班级座位。
+你会收到指标说明、经过筛选的本次规则、一个以 CSV 风格文字表示的随机初始座位布局，以及学生数据。
+指标说明中的字段名和解释优先用于理解学生数据；不要臆测字段含义。
+每条学生数据还包含 studentId 和 name，它们只是用于唯一识别学生，不是可优化的指标。
+座位布局已经去除走廊、讲台、门等人类视觉标识，并压缩为规整矩形。
+随机初始座位布局使用 CSV 风格矩阵表示：换行分隔座位行，逗号分隔同一行的列。
+单元格“studentId:姓名”表示该学生，空单元格表示可用但暂时没有学生的座位，X 表示不存在的槽位；不要把 X 当作座位。
+第 0 行表示最靠前的一行，列顺序从左到右；返回 JSON 时 row 和 col 使用这个文字网格的坐标。
+
+请优先满足本次实际提供的强制规则和选择性规则；规则之间冲突时，先满足更明确、更强的限制。
+在满足规则的前提下，遵循最小修改原则：尽量保留“随机初始座位布局”中的学生-座位对应关系，尽量少移动学生。
+必须满足：每位学生只出现一次；只能放在随机初始座位布局中不是 X 的格子上；
+座位数不足时，多余学生可以不放；座位多于学生时，允许留下空位。
+
+只输出如下 JSON，不要输出任何额外文字或 markdown 代码块：
+{"seats":[{"row":0,"col":1,"studentId":1,"name":"张三"}, ...]}
+优先使用 studentId 标识学生，同时保留 name 便于人工查看。
+row 和 col 必须使用压缩座位网格坐标，而不是原始 Excel 布局坐标。`;
+
+const STORAGE_KEY = 'seatai.settings.v1';
+
+/* =====================================================================
+ *  基础工具
+ * ===================================================================== */
+function trimAscii(s) {
+  return String(s).replace(/^[ \t\r\n]+/, '').replace(/[ \t\r\n]+$/, '');
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+
+function toInt(v, def) {
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (t !== '' && !isNaN(Number(t))) return Math.trunc(Number(t));
+  }
+  return def;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  if (r < 0) r = 0;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* =====================================================================
+ *  全局状态
+ * ===================================================================== */
+function makeLayout(rows, cols) {
+  return { rows, cols, cells: new Array(rows * cols).fill(0) };
+}
+
+function createDefaultSettings() {
+  return {
+    excelFile: 'students.xlsx',
+    sheetName: '',
+    headerRow: 0,
+    descRow: 1,
+    dataStartRow: 2,
+    apiEndpoint: 'https://api.openai.com/v1/chat/completions',
+    apiKey: '',
+    apiModel: 'gpt-4o-mini',
+    userPrompt: '',
+    columns: [],
+    layout: makeLayout(6, 8),
+  };
+}
+
+const state = {
+  settings: createDefaultSettings(),
+  rawRows: [],
+  students: [],
+  workbook: null,
+  excelFileObj: null,
+
+  result: [],
+  hasResult: false,
+
+  // 每次请求使用的压缩座位网格及其到原始布局的映射
+  requestLayoutRows: 0,
+  requestLayoutCols: 0,
+  requestSeatSlots: [],
+  requestStudentNames: [],
+
+  generating: false,
+};
+
+/* =====================================================================
+ *  设置序列化 / 反序列化（与 C++ settings.json 完全同构）
+ * ===================================================================== */
+function settingsToJson() {
+  const s = state.settings;
+  const j = {
+    excelFile: s.excelFile,
+    sheetName: s.sheetName,
+    headerRow: s.headerRow,
+    descRow: s.descRow,
+    dataStartRow: s.dataStartRow,
+    apiEndpoint: s.apiEndpoint,
+    apiKey: s.apiKey,
+    apiModel: s.apiModel,
+    userPrompt: s.userPrompt,
+    columns: s.columns.map(c => ({ title: c.title, desc: c.desc, enabled: !!c.enabled })),
+    layout: { rows: s.layout.rows, cols: s.layout.cols, cells: [] },
+  };
+  for (let r = 0; r < s.layout.rows; r++) {
+    const row = [];
+    for (let c = 0; c < s.layout.cols; c++) {
+      row.push(s.layout.cells[r * s.layout.cols + c] | 0);
+    }
+    j.layout.cells.push(row);
+  }
+  return j;
+}
+
+function applySettingsJson(j) {
+  if (!j || typeof j !== 'object') throw new Error('配置不是合法的 JSON 对象');
+  const s = state.settings;
+
+  if (j.excelFile !== undefined) s.excelFile = String(j.excelFile);
+  if (j.sheetName !== undefined) s.sheetName = String(j.sheetName);
+  if (j.apiEndpoint !== undefined) s.apiEndpoint = String(j.apiEndpoint);
+  if (j.apiKey !== undefined) s.apiKey = String(j.apiKey);
+  if (j.apiModel !== undefined) s.apiModel = String(j.apiModel);
+  if (j.userPrompt !== undefined) s.userPrompt = String(j.userPrompt);
+
+  if (j.headerRow !== undefined) s.headerRow = toInt(j.headerRow, s.headerRow);
+  if (j.descRow !== undefined) s.descRow = toInt(j.descRow, s.descRow);
+  if (j.dataStartRow !== undefined) s.dataStartRow = toInt(j.dataStartRow, s.dataStartRow);
+
+  if (Array.isArray(j.columns)) {
+    s.columns = j.columns.map(c => ({
+      title: (c && c.title !== undefined) ? String(c.title) : '',
+      desc: (c && c.desc !== undefined) ? String(c.desc) : '',
+      enabled: c && c.enabled !== undefined ? !!c.enabled : true,
+    }));
+  }
+
+  if (j.layout && typeof j.layout === 'object') {
+    const rows = j.layout.rows !== undefined ? toInt(j.layout.rows, s.layout.rows) : s.layout.rows;
+    const cols = j.layout.cols !== undefined ? toInt(j.layout.cols, s.layout.cols) : s.layout.cols;
+    s.layout.rows = Math.max(1, rows);
+    s.layout.cols = Math.max(1, cols);
+    s.layout.cells = new Array(s.layout.rows * s.layout.cols).fill(0);
+
+    if (Array.isArray(j.layout.cells)) {
+      for (let r = 0; r < s.layout.rows && r < j.layout.cells.length; r++) {
+        const row = j.layout.cells[r];
+        if (!Array.isArray(row)) continue;
+        for (let c = 0; c < s.layout.cols && c < row.length; c++) {
+          const v = toInt(row[c], 0);
+          s.layout.cells[r * s.layout.cols + c] = (v >= 0 && v <= 4) ? v : 0;
+        }
+      }
+    }
+  }
+}
+
+function saveSettingsToStorage() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsToJson())); } catch (e) { /* ignore */ }
+}
+
+function loadSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    applySettingsJson(JSON.parse(raw));
+    return true;
+  } catch (e) { return false; }
+}
+
+/* =====================================================================
+ *  Excel 读取
+ * ===================================================================== */
+function applyWorkbook(wb) {
+  const s = state.settings;
+  let sheetName = s.sheetName;
+  if (!sheetName || !wb.Sheets[sheetName]) sheetName = wb.SheetNames[0];
+  if (!sheetName) throw new Error('工作簿中没有工作表');
+
+  const ws = wb.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  const rows = aoa.map(row => (Array.isArray(row) ? row : []).map(v => (v === null || v === undefined) ? '' : String(v)));
+
+  state.rawRows = rows;
+  buildColumns(rows);
+  buildStudents(rows);
+}
+
+function buildColumns(rows) {
+  const s = state.settings;
+  const savedColumns = s.columns.map(c => ({ title: c.title, desc: c.desc, enabled: !!c.enabled }));
+
+  const cols = [];
+  if (rows.length > s.headerRow && s.headerRow >= 0) {
+    const hdr = rows[s.headerRow];
+    for (let i = 0; i < hdr.length; i++) {
+      const ci = { title: hdr[i], desc: '', enabled: true };
+      if (s.descRow >= 0 && s.descRow < rows.length && i < rows[s.descRow].length) {
+        ci.desc = rows[s.descRow][i];
+      }
+      // 先按列序号沿用旧设置
+      if (i < savedColumns.length) ci.enabled = savedColumns[i].enabled;
+      // 再按标题精确匹配覆盖（与 C++ 逻辑一致）
+      for (const saved of savedColumns) {
+        if (saved.title === ci.title) { ci.enabled = saved.enabled; break; }
+      }
+      cols.push(ci);
+    }
+  }
+
+  // 虚拟指标：不来自 Excel，但和普通指标一样由设置页勾选
+  const randomMetric = {
+    title: RANDOM_METRIC_TITLE,
+    desc: RANDOM_METRIC_DESC,
+    enabled: false,
+  };
+  for (const saved of savedColumns) {
+    if (saved.title === RANDOM_METRIC_TITLE) { randomMetric.enabled = saved.enabled; break; }
+  }
+  cols.push(randomMetric);
+
+  s.columns = cols;
+}
+
+function buildStudents(rows) {
+  const s = state.settings;
+  const students = [];
+  for (let r = s.dataStartRow; r < rows.length; r++) {
+    const values = rows[r];
+    if (!Array.isArray(values)) continue;
+    let any = false;
+    for (const v of values) { if (v !== '') { any = true; break; } }
+    if (any) students.push({ values: values.slice() });
+  }
+  state.students = students;
+}
+
+async function loadExcelFromFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+  state.workbook = wb;
+  state.excelFileObj = file;
+  state.settings.excelFile = file.name;
+  applyWorkbook(wb);
+}
+
+/* =====================================================================
+ *  规则筛选（对应 selectedRules）
+ * ===================================================================== */
+function selectedRules(prompt) {
+  const out = [];
+  const lines = String(prompt || '').split('\n');
+  for (const rawLine of lines) {
+    let rule = trimAscii(rawLine);
+    if (rule === '') continue;
+
+    let optional = false;
+    if (rule[0] === '-' || rule[0] === '*') {
+      optional = rule[0] === '*';
+      rule = trimAscii(rule.substring(1));
+    }
+    if (rule === '') continue;
+    // 可选规则 50% 概率生效
+    if (optional && Math.random() >= 0.5) continue;
+
+    out.push('- ' + rule);
+  }
+  return out.join('\n');
+}
+
+/* =====================================================================
+ *  Prompt 构造（对应 buildSystemPrompt / buildUserContent）
+ * ===================================================================== */
+function buildSystemPrompt() {
+  return SYSTEM_PROMPT;
+}
+
+function buildUserContent() {
+  const s = state.settings;
+  const L = s.layout;
+  const R = L.rows, C = L.cols;
+
+  const cellType = (r, c) => {
+    const idx = r * C + c;
+    if (idx < 0 || idx >= L.cells.length) return 0;
+    return L.cells[idx] | 0;
+  };
+
+  /* ---- 把原始布局压缩为连续座位网格 ---- */
+  const seatRows = [];
+  for (let r = 0; r < R; r++) {
+    const row = [];
+    for (let c = 0; c < C; c++) {
+      if (cellType(r, c) === 1) row.push([r, c]);
+    }
+    if (row.length > 0) seatRows.push(row);
+  }
+
+  let requestLayoutRows = seatRows.length;
+  let requestLayoutCols = 0;
+  for (const row of seatRows) {
+    if (row.length > requestLayoutCols) requestLayoutCols = row.length;
+  }
+
+  const originalSeatSlots = [];
+  for (const row of seatRows) {
+    for (const p of row) originalSeatSlots.push(p);
+  }
+
+  if (originalSeatSlots.length > 0) {
+    requestLayoutRows = requestLayoutCols > 0
+      ? Math.ceil(originalSeatSlots.length / requestLayoutCols)
+      : 0;
+  }
+
+  const requestSeatSlots = new Array(requestLayoutRows * requestLayoutCols);
+  for (let i = 0; i < requestSeatSlots.length; i++) requestSeatSlots[i] = [-1, -1];
+
+  for (let r = 0; r < requestLayoutRows; r++) {
+    for (let c = 0; c < requestLayoutCols; c++) {
+      const slot = r * requestLayoutCols + c;
+      if (slot < originalSeatSlots.length) {
+        requestSeatSlots[slot] = originalSeatSlots[slot];
+      }
+    }
+  }
+
+  /* ---- 虚拟随机指标 ---- */
+  const useRandomMetric = s.columns.some(c => c.enabled && c.title === RANDOM_METRIC_TITLE);
+
+  const randomNumbers = [];
+  for (let i = 0; i < state.students.length; i++) randomNumbers.push(i + 1);
+  if (useRandomMetric) shuffle(randomNumbers);
+
+  /* ---- 指标说明 ---- */
+  const indicatorDefinitions = [];
+  for (const column of s.columns) {
+    if (!column.enabled || !column.title) continue;
+    indicatorDefinitions.push({
+      name: column.title,
+      description: column.title === RANDOM_METRIC_TITLE
+        ? RANDOM_METRIC_DESC
+        : (column.desc || ''),
+    });
+  }
+
+  /* ---- 规则 ---- */
+  const rules = selectedRules(s.userPrompt);
+
+  /* ---- 学生姓名 ---- */
+  const studentNames = [];
+  for (let i = 0; i < state.students.length; i++) {
+    const values = state.students[i].values;
+    let name = '';
+    for (let c = 0; c < s.columns.length; c++) {
+      if (s.columns[c].title === '姓名' && c < values.length) {
+        name = values[c];
+        break;
+      }
+    }
+    if (!name) {
+      for (const v of values) { if (v) { name = v; break; } }
+    }
+    if (!name) name = '学生' + (i + 1);
+    studentNames.push(name);
+  }
+  state.requestStudentNames = studentNames;
+
+  /* ---- 学生数据 ---- */
+  const students = [];
+  for (let i = 0; i < state.students.length; i++) {
+    const o = { studentId: i + 1, name: studentNames[i] };
+    for (let c = 0; c < s.columns.length; c++) {
+      const column = s.columns[c];
+      if (!column.enabled || !column.title) continue;
+      if (column.title === RANDOM_METRIC_TITLE && useRandomMetric) {
+        o[column.title] = randomNumbers[i];
+      } else {
+        o[column.title] = (c < state.students[i].values.length)
+          ? state.students[i].values[c] : '';
+      }
+    }
+    students.push(o);
+  }
+
+  /* ---- 随机初始座位 ---- */
+  const shuffledStudents = [];
+  for (let i = 0; i < state.students.length; i++) shuffledStudents.push(i);
+  shuffle(shuffledStudents);
+
+  const initialStudentBySlot = new Array(requestSeatSlots.length).fill(-1);
+  let nextSlot = 0;
+  for (const studentIndex of shuffledStudents) {
+    while (nextSlot < requestSeatSlots.length && requestSeatSlots[nextSlot][0] < 0) nextSlot++;
+    if (nextSlot >= requestSeatSlots.length) break;
+    initialStudentBySlot[nextSlot] = studentIndex;
+    nextSlot++;
+  }
+
+  const csvCell = (value) => {
+    if (!/["\r\n,]/.test(value)) return value;
+    return '"' + value.replace(/"/g, '""') + '"';
+  };
+
+  let initialSeatGrid = '';
+  for (let r = 0; r < requestLayoutRows; r++) {
+    if (r > 0) initialSeatGrid += '\n';
+    for (let c = 0; c < requestLayoutCols; c++) {
+      if (c > 0) initialSeatGrid += ',';
+      const slot = r * requestLayoutCols + c;
+      if (slot >= requestSeatSlots.length || requestSeatSlots[slot][0] < 0) {
+        initialSeatGrid += 'X';
+        continue;
+      }
+      const si = initialStudentBySlot[slot];
+      if (si >= 0) {
+        initialSeatGrid += (si + 1) + ':' + csvCell(studentNames[si]);
+      }
+    }
+  }
+
+  /* ---- 保存本次请求使用的网格，供 parseResult 使用 ---- */
+  state.requestLayoutRows = requestLayoutRows;
+  state.requestLayoutCols = requestLayoutCols;
+  state.requestSeatSlots = requestSeatSlots;
+
+  /* ---- 组装 ---- */
+  let out = '';
+  out += '【指标说明】\n';
+  out += JSON.stringify(indicatorDefinitions, null, 2);
+  out += '\n\n【自定义规则】\n';
+  out += rules || '（无，请在最小修改原则下均衡安排）';
+  out += '\n\n【随机初始座位布局】\n';
+  out += initialSeatGrid || '（没有可用座位）';
+  out += '\n\n【学生数据】\n';
+  out += JSON.stringify(students, null, 2);
+  return out;
+}
+
+function buildRequestBody() {
+  const body = {
+    model: state.settings.apiModel,
+    temperature: 0.6,
+    messages: [
+      { role: 'system', content: buildSystemPrompt() },
+      { role: 'user', content: buildUserContent() },
+    ],
+  };
+  return JSON.stringify(body);
+}
+
+/* =====================================================================
+ *  解析 AI 返回
+ * ===================================================================== */
+function parseResult(aiContent) {
+  let txt = String(aiContent);
+
+  // 去掉 ```json ... ``` 包裹
+  const p = txt.indexOf('```');
+  if (p !== -1) {
+    const q = txt.indexOf('```', p + 3);
+    if (q !== -1) {
+      let inner = txt.substring(p + 3, q);
+      const nl = inner.indexOf('\n');
+      if (nl !== -1 && inner.substring(0, nl).indexOf('{') === -1) {
+        inner = inner.substring(nl + 1);
+      }
+      txt = inner;
+    }
+  }
+
+  let j;
+  try {
+    j = JSON.parse(txt);
+  } catch (e) {
+    return { ok: false, err: 'JSON 解析失败: ' + e.message };
+  }
+
+  if (!j || !Array.isArray(j.seats)) {
+    return { ok: false, err: '返回 JSON 中缺少 seats 字段' };
+  }
+
+  const L = state.settings.layout;
+  const R = L.rows, C = L.cols;
+  const result = new Array(R * C).fill('');
+  let placed = 0;
+
+  for (const seat of j.seats) {
+    if (!seat || typeof seat !== 'object') continue;
+
+    const r = toInt(seat.row, -1);
+    const c = toInt(seat.col, -1);
+    let name = (typeof seat.name === 'string') ? seat.name : (seat.name === undefined || seat.name === null ? '' : String(seat.name));
+    const studentId = toInt(seat.studentId, -1);
+
+    if (studentId >= 1 && studentId <= state.requestStudentNames.length) {
+      name = state.requestStudentNames[studentId - 1];
+    }
+
+    if (state.requestLayoutRows > 0 && state.requestLayoutCols > 0) {
+      if (r < 0 || r >= state.requestLayoutRows || c < 0 || c >= state.requestLayoutCols) continue;
+      const orig = state.requestSeatSlots[r * state.requestLayoutCols + c];
+      if (!orig || orig[0] < 0 || orig[1] < 0) continue;
+      result[orig[0] * C + orig[1]] = name;
+    } else {
+      if (r < 0 || r >= R || c < 0 || c >= C) continue;
+      if ((L.cells[r * C + c] | 0) !== 1) continue;
+      result[r * C + c] = name;
+    }
+    placed++;
+  }
+
+  if (placed === 0) return { ok: false, err: 'AI 未给出任何有效座位' };
+  return { ok: true, result };
+}
+
+/* =====================================================================
+ *  生成流程
+ * ===================================================================== */
+function setGeneratingUI(on) {
+  const btn = document.getElementById('btn-generate');
+  btn.disabled = on;
+  btn.textContent = on ? '⏳  正在生成…' : '✨  生成座位表';
+}
+
+async function startGenerate() {
+  if (state.generating) return;
+  const s = state.settings;
+
+  if (!s.apiKey && s.apiEndpoint.indexOf('localhost') === -1 && s.apiEndpoint.indexOf('127.0.0.1') === -1) {
+    alert('请先在「设置」页填写 API Key。');
+    return;
+  }
+  if (state.students.length === 0) {
+    alert('尚未读取到学生数据，请在设置页检查 Excel 文件。');
+    return;
+  }
+
+  state.generating = true;
+  setGeneratingUI(true);
+  document.getElementById('status').textContent = '⏳ 正在调用 AI 生成座位表…';
+
+  try {
+    const body = buildRequestBody();
+    console.log('===== REQUEST BODY =====\n' + body);
+
+    const headers = {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Authorization': 'Bearer ' + s.apiKey,
+    };
+
+    const res = await fetch(s.apiEndpoint, { method: 'POST', headers, body });
+    const respText = await res.text();
+    console.log('===== RESPONSE =====\n' + respText);
+
+    let j;
+    try {
+      j = JSON.parse(respText);
+    } catch (e) {
+      throw new Error('响应解析失败: ' + e.message + '\n' + respText.slice(0, 300));
+    }
+
+    if (j && j.error) {
+      const msg = typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error));
+      throw new Error(msg);
+    }
+
+    let content = '';
+    if (Array.isArray(j.choices) && j.choices.length > 0) {
+      const ch = j.choices[0];
+      if (ch && ch.message) content = ch.message.content;
+      else if (ch && ch.text !== undefined) content = ch.text;
+    }
+    if (Array.isArray(content)) {
+      content = content.map(x => (typeof x === 'string') ? x : ((x && x.text) || '')).join('');
+    }
+    if (content === null || content === undefined) content = '';
+
+    if (!content) {
+      throw new Error('AI 返回内容为空：' + respText.slice(0, 300));
+    }
+
+    const r = parseResult(String(content));
+    if (!r.ok) {
+      document.getElementById('status').textContent = '❌ 解析失败：' + r.err;
+    } else {
+      state.result = r.result;
+      state.hasResult = true;
+      document.getElementById('status').textContent = '✅ 生成完成';
+      drawPreview();
+    }
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    document.getElementById('status').textContent = '❌ 请求失败：' + msg;
+  } finally {
+    state.generating = false;
+    setGeneratingUI(false);
+  }
+}
+
+/* =====================================================================
+ *  导出 Excel
+ * ===================================================================== */
+function exportXlsx() {
+  const L = state.settings.layout;
+  const t = [];
+  for (let r = 0; r < L.rows; r++) {
+    const row = [];
+    for (let c = 0; c < L.cols; c++) {
+      const idx = r * L.cols + c;
+      const type = L.cells[idx] | 0;
+      let v = '';
+      if (type === 1) {
+        if (state.hasResult && idx < state.result.length) v = state.result[idx] || '';
+      } else if (type === 3) {
+        v = '讲台';
+      } else if (type === 4) {
+        v = '门';
+      }
+      row.push(v);
+    }
+    t.push(row);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(t);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '座位表');
+  XLSX.writeFile(wb, '座位表.xlsx');
+}
+
+/* =====================================================================
+ *  主页面预览绘制
+ * ===================================================================== */
+function drawPreview() {
+  const canvas = document.getElementById('preview');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  if (W <= 0 || H <= 0) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(W * dpr));
+  canvas.height = Math.max(1, Math.round(H * dpr));
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const L = state.settings.layout;
+  if (!L || L.rows <= 0 || L.cols <= 0) return;
+
+  const pad = 24;
+  const availW = W - pad * 2;
+  const availH = H - pad * 2;
+  if (availW <= 0 || availH <= 0) return;
+
+  let cell = Math.min(Math.floor(availW / L.cols), Math.floor(availH / L.rows));
+  if (cell < 12) cell = 12;
+
+  const totalW = cell * L.cols;
+  const totalH = cell * L.rows;
+  const ox = (W - totalW) / 2;
+  const oy = (H - totalH) / 2;
+
+  for (let r = 0; r < L.rows; r++) {
+    for (let c = 0; c < L.cols; c++) {
+      const idx = r * L.cols + c;
+      const type = L.cells[idx] | 0;
+
+      let fill = '#fafafa', border = '#d2d2d2', textCol = '#b4b4b4', label = '';
+
+      switch (type) {
+        case 1:
+          fill = '#e8f2ff'; border = '#d2d2d2'; textCol = '#141414';
+          if (state.hasResult && idx < state.result.length) label = state.result[idx] || '';
+          break;
+        case 2:
+          fill = '#ebebeb'; border = '#d2d2d2'; textCol = '#a0a0a0';
+          break;
+        case 3:
+          fill = '#ffe8cc'; border = '#d2d2d2'; textCol = '#965000'; label = '讲台';
+          break;
+        case 4:
+          fill = '#d6f5d6'; border = '#d2d2d2'; textCol = '#006e00'; label = '门';
+          break;
+        default:
+          fill = '#fafafa'; border = '#d2d2d2'; textCol = '#b4b4b4';
+          break;
+      }
+
+      const x = ox + c * cell;
+      const y = oy + r * cell;
+      const p = 2;
+
+      roundRect(ctx, x + p, y + p, cell - p * 2, cell - p * 2, 8);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      if (label) {
+        ctx.fillStyle = textCol;
+        const fs = Math.max(9, Math.min(16, Math.floor(cell * 0.32)));
+        ctx.font = fs + 'px "Segoe UI","Microsoft YaHei",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        let text = label;
+        const maxW = cell - 8;
+        if (ctx.measureText(text).width > maxW) {
+          while (text.length > 1 && ctx.measureText(text + '…').width > maxW) {
+            text = text.slice(0, -1);
+          }
+          text += '…';
+        }
+        ctx.fillText(text, x + cell / 2, y + cell / 2);
+      }
+    }
+  }
+}
+
+/* =====================================================================
+ *  设置页 UI
+ * ===================================================================== */
+function renderColumnsList() {
+  const wrap = document.getElementById('columns-list');
+  wrap.innerHTML = '';
+  const s = state.settings;
+
+  if (!s.columns.length) {
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = '尚未读取 Excel，暂无指标列。请先上传 Excel 文件。';
+    wrap.appendChild(hint);
+    return;
+  }
+
+  s.columns.forEach((col, i) => {
+    const label = document.createElement('label');
+    label.className = 'chk';
+    if (col.desc) label.title = col.desc;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!col.enabled;
+    cb.addEventListener('change', () => {
+      s.columns[i].enabled = cb.checked;
+      saveSettingsToStorage();
+    });
+
+    const span = document.createElement('span');
+    span.textContent = col.title || '(未命名列)';
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    wrap.appendChild(label);
+  });
+}
+
+function updateLayoutSummary() {
+  const L = state.settings.layout;
+  let seats = 0;
+  for (const t of L.cells) if ((t | 0) === 1) seats++;
+  document.getElementById('layout-summary').textContent =
+    `${L.rows} 行 × ${L.cols} 列，共 ${seats} 个座位`;
+}
+
+function renderSettingsUI() {
+  const s = state.settings;
+  document.getElementById('inp-sheet').value = s.sheetName;
+  document.getElementById('inp-header-row').value = s.headerRow;
+  document.getElementById('inp-desc-row').value = s.descRow;
+  document.getElementById('inp-data-start-row').value = s.dataStartRow;
+  document.getElementById('inp-endpoint').value = s.apiEndpoint;
+  document.getElementById('inp-key').value = s.apiKey;
+  document.getElementById('inp-model').value = s.apiModel;
+  document.getElementById('inp-prompt').value = s.userPrompt;
+  document.getElementById('excel-file-name').textContent =
+    s.excelFile ? s.excelFile : '未选择文件';
+  renderColumnsList();
+  updateLayoutSummary();
+  drawPreview();
+}
+
+function numOr(v, d) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : d;
+}
+
+function syncSettingsFromUI() {
+  const s = state.settings;
+  s.sheetName = document.getElementById('inp-sheet').value;
+  s.headerRow = numOr(document.getElementById('inp-header-row').value, 0);
+  s.descRow = numOr(document.getElementById('inp-desc-row').value, -1);
+  s.dataStartRow = numOr(document.getElementById('inp-data-start-row').value, 0);
+  s.apiEndpoint = document.getElementById('inp-endpoint').value.trim();
+  s.apiKey = document.getElementById('inp-key').value;
+  s.apiModel = document.getElementById('inp-model').value.trim();
+  s.userPrompt = document.getElementById('inp-prompt').value;
+}
+
+/* =====================================================================
+ *  座位布局编辑器
+ * ===================================================================== */
+const layoutEditor = {
+  canvas: null,
+  cell: 56,
+  ox: 20,
+  oy: 20,
+  dpr: 1,
+  currentTool: 1,
+};
+
+function resizeLayoutCanvas() {
+  const canvas = layoutEditor.canvas;
+  if (!canvas) return;
+  const bodyEl = document.querySelector('#layout-modal .modal-body');
+  const L = state.settings.layout;
+  const dpr = window.devicePixelRatio || 1;
+
+  const availW = Math.max(120, bodyEl.clientWidth - 40);
+  const availH = Math.max(120, bodyEl.clientHeight - 40);
+
+  let cell = Math.min(
+    Math.floor(availW / Math.max(1, L.cols)),
+    Math.floor(availH / Math.max(1, L.rows))
+  );
+  cell = Math.max(20, Math.min(56, cell));
+  layoutEditor.cell = cell;
+
+  const w = L.cols * cell + 40;
+  const h = L.rows * cell + 40;
+
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+
+  layoutEditor.ox = 20;
+  layoutEditor.oy = 20;
+  layoutEditor.dpr = dpr;
+}
+
+function layoutStyleFor(t) {
+  switch (t) {
+    case 1: return { fill: '#d6e8ff', border: '#78aae6', text: '#1446aa', label: '座' };
+    case 2: return { fill: '#e8e8e8', border: '#bebebe', text: '#8c8c8c', label: '走' };
+    case 3: return { fill: '#ffe0b2', border: '#e6aa5a', text: '#965000', label: '台' };
+    case 4: return { fill: '#c6f0c6', border: '#6ebe6e', text: '#006e00', label: '门' };
+    default:  return { fill: '#fafafa', border: '#dcdcdc', text: '#b4b4b4', label: '空' };
+  }
+}
+
+function drawLayoutCanvas() {
+  const canvas = layoutEditor.canvas;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = layoutEditor.dpr || 1;
+  const L = state.settings.layout;
+  const cell = layoutEditor.cell;
+  const ox = layoutEditor.ox;
+  const oy = layoutEditor.oy;
+
+  const W = canvas.width / dpr;
+  const H = canvas.height / dpr;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fafafc';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.font = '13px "Segoe UI","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let r = 0; r < L.rows; r++) {
+    for (let c = 0; c < L.cols; c++) {
+      const t = L.cells[r * L.cols + c] | 0;
+      const st = layoutStyleFor(t);
+      const x = ox + c * cell;
+      const y = oy + r * cell;
+      const p = 3;
+
+      roundRect(ctx, x + p, y + p, cell - p * 2, cell - p * 2, 10);
+      ctx.fillStyle = st.fill;
+      ctx.fill();
+      ctx.strokeStyle = st.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = st.text;
+      ctx.fillText(st.label, x + cell / 2, y + cell / 2);
+    }
+  }
+}
+
+function refreshLayoutEditor() {
+  resizeLayoutCanvas();
+  drawLayoutCanvas();
+  updateLayoutSummary();
+  drawPreview();
+}
+
+function openLayoutEditor() {
+  document.getElementById('layout-modal').classList.add('show');
+  requestAnimationFrame(() => {
+    refreshLayoutEditor();
+  });
+}
+
+function closeLayoutEditor() {
+  document.getElementById('layout-modal').classList.remove('show');
+}
+
+function resizeLayout(newRows, newCols) {
+  const L = state.settings.layout;
+  newRows = Math.max(1, newRows);
+  newCols = Math.max(1, newCols);
+
+  const newCells = new Array(newRows * newCols).fill(0);
+  for (let i = 0; i < newRows && i < L.rows; i++) {
+    for (let j = 0; j < newCols && j < L.cols; j++) {
+      newCells[i * newCols + j] = L.cells[i * L.cols + j] | 0;
+    }
+  }
+  L.rows = newRows;
+  L.cols = newCols;
+  L.cells = newCells;
+
+  saveSettingsToStorage();
+  refreshLayoutEditor();
+}
+
+/* =====================================================================
+ *  初始化
+ * ===================================================================== */
+function switchPage(name) {
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (name === 'main') {
+    requestAnimationFrame(() => drawPreview());
+  }
+}
+
+function bindUI() {
+  /* ---- 导航 ---- */
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchPage(btn.dataset.page));
+  });
+
+  /* ---- 主页面 ---- */
+  document.getElementById('btn-generate').addEventListener('click', startGenerate);
+  document.getElementById('btn-export').addEventListener('click', () => {
+    if (!state.hasResult) {
+      alert('请先生成座位表。');
+      return;
+    }
+    try {
+      exportXlsx();
+    } catch (e) {
+      alert('导出失败：' + e.message);
+    }
+  });
+
+  /* ---- 设置页：输入绑定 ---- */
+  const inputIds = [
+    'inp-sheet', 'inp-header-row', 'inp-desc-row', 'inp-data-start-row',
+    'inp-endpoint', 'inp-key', 'inp-model', 'inp-prompt',
+  ];
+  inputIds.forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      syncSettingsFromUI();
+      saveSettingsToStorage();
+    });
+  });
+
+  /* ---- 保存设置 ---- */
+  document.getElementById('btn-save-settings').addEventListener('click', () => {
+    syncSettingsFromUI();
+    saveSettingsToStorage();
+    toast('设置已保存到本地存储');
+  });
+
+  /* ---- Excel 文件 ---- */
+  document.getElementById('excel-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      await loadExcelFromFile(file);
+      renderSettingsUI();
+      saveSettingsToStorage();
+      toast('已读取 Excel：' + file.name + '（' + state.students.length + ' 名学生）');
+    } catch (err) {
+      alert('读取失败：' + (err.message || err));
+    }
+  });
+
+  document.getElementById('btn-reload-excel').addEventListener('click', async () => {
+    if (!state.excelFileObj) {
+      alert('请先在上方选择 Excel 文件。');
+      document.getElementById('excel-file-input').click();
+      return;
+    }
+    try {
+      await loadExcelFromFile(state.excelFileObj);
+      renderSettingsUI();
+      saveSettingsToStorage();
+      toast('已重新加载 Excel（' + state.students.length + ' 名学生）');
+    } catch (err) {
+      alert('读取失败：' + (err.message || err));
+    }
+  });
+
+  /* ---- 配置 JSON 导出 / 导入 ---- */
+  document.getElementById('btn-export-config').addEventListener('click', () => {
+    syncSettingsFromUI();
+    const blob = new Blob([JSON.stringify(settingsToJson(), null, 2)], { type: 'application/json' });
+    downloadBlob(blob, 'settings.json');
+    toast('配置已导出为 settings.json');
+  });
+
+  document.getElementById('btn-import-config').addEventListener('click', () => {
+    document.getElementById('config-file-input').click();
+  });
+
+  document.getElementById('config-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const j = JSON.parse(text);
+      applySettingsJson(j);
+      renderSettingsUI();
+      saveSettingsToStorage();
+      toast('配置已导入');
+    } catch (err) {
+      alert('导入失败：' + (err.message || err));
+    }
+  });
+
+  /* ---- 布局编辑器 ---- */
+  document.getElementById('btn-open-layout').addEventListener('click', openLayoutEditor);
+  document.getElementById('layout-close').addEventListener('click', closeLayoutEditor);
+
+  document.getElementById('layout-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'layout-modal') closeLayoutEditor();
+  });
+
+  document.getElementById('le-row-plus').addEventListener('click', () => {
+    const L = state.settings.layout; resizeLayout(L.rows + 1, L.cols);
+  });
+  document.getElementById('le-row-minus').addEventListener('click', () => {
+    const L = state.settings.layout;
+    if (L.rows > 1) resizeLayout(L.rows - 1, L.cols);
+  });
+  document.getElementById('le-col-plus').addEventListener('click', () => {
+    const L = state.settings.layout; resizeLayout(L.rows, L.cols + 1);
+  });
+  document.getElementById('le-col-minus').addEventListener('click', () => {
+    const L = state.settings.layout;
+    if (L.cols > 1) resizeLayout(L.rows, L.cols - 1);
+  });
+
+  document.getElementById('le-all-seat').addEventListener('click', () => {
+    const L = state.settings.layout;
+    for (let i = 0; i < L.cells.length; i++) L.cells[i] = 1;
+    saveSettingsToStorage(); refreshLayoutEditor();
+  });
+  document.getElementById('le-all-clear').addEventListener('click', () => {
+    const L = state.settings.layout;
+    for (let i = 0; i < L.cells.length; i++) L.cells[i] = 0;
+    saveSettingsToStorage(); refreshLayoutEditor();
+  });
+
+  document.querySelectorAll('.modal-toolbar button[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      layoutEditor.currentTool = parseInt(btn.dataset.tool, 10) || 0;
+      document.querySelectorAll('.modal-toolbar button[data-tool]').forEach(b => {
+        b.classList.toggle('on', b === btn);
+      });
+    });
+  });
+
+  /* ---- 布局画布交互 ---- */
+  const canvas = document.getElementById('layout-canvas');
+  layoutEditor.canvas = canvas;
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const L = state.settings.layout;
+
+    if (x < layoutEditor.ox || y < layoutEditor.oy) return;
+
+    const c = Math.floor((x - layoutEditor.ox) / layoutEditor.cell);
+    const r = Math.floor((y - layoutEditor.oy) / layoutEditor.cell);
+
+    if (r >= 0 && r < L.rows && c >= 0 && c < L.cols) {
+      L.cells[r * L.cols + c] = layoutEditor.currentTool;
+      drawLayoutCanvas();
+      updateLayoutSummary();
+      drawPreview();
+      saveSettingsToStorage();
+    }
+  });
+
+  /* ---- 窗口尺寸变化 ---- */
+  window.addEventListener('resize', () => {
+    drawPreview();
+    if (document.getElementById('layout-modal').classList.contains('show')) {
+      refreshLayoutEditor();
+    }
+  });
+
+  /* ---- 主页面预览自适应 ---- */
+  const wrap = document.querySelector('.preview-wrap');
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => drawPreview()).observe(wrap);
+  }
+}
+
+function initApp() {
+  if (typeof XLSX === 'undefined') {
+    document.getElementById('status').textContent =
+      '❌ 未能加载 SheetJS（XLSX）库，请检查网络后刷新页面。';
+    return;
+  }
+
+  loadSettingsFromStorage();
+
+  // 确保 layout 结构完整
+  const L = state.settings.layout;
+  if (!L || !Array.isArray(L.cells) || L.cells.length !== L.rows * L.cols) {
+    state.settings.layout = makeLayout(L ? L.rows : 6, L ? L.cols : 8);
+  }
+
+  bindUI();
+
+  // 默认选中「座位」工具
+  const seatBtn = document.querySelector('.modal-toolbar button[data-tool="1"]');
+  if (seatBtn) seatBtn.classList.add('on');
+
+  renderSettingsUI();
+  requestAnimationFrame(() => drawPreview());
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+</script>
+</body>
+</html>
